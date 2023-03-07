@@ -44,5 +44,6 @@ Tokenizer(토크나이저)
 목적: 입력된 텍스트를 모델에서 처리할 수 있는 데이터로 변환 / 가장 의미있는 표현, 즉 모델에 가장 적합하면서 최대한 간결한 표현을 찾는 것
 단어 기반 토큰화(word-based Tokenization), 문자 기반 토큰화(Character-based Tokenization), 하위 단어 토큰화(Subword Tokenization)
 
+
 Q-learning
-모델 없이 학습하는 강화 학습 기법 가운데 하나 / 주어진 <font color='#1E90FF'>유한 마르코프 결정 과정</font>의 최적의 정책을 찾기 위해 사용할 수 있음
+모델 없이 학습하는 강화 학습 기법 가운데 하나 / 주어진 유한 마르코프 결정 과정의 최적의 정책을 찾기 위해 사용할 수 있음
