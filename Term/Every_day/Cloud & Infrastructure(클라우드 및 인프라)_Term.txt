@@ -406,7 +406,7 @@
  - 회복력·벤더 유연성: 다중 프로바이더 라우팅으로 장애 대체·벤더 종속 완화(Portkey 등은 1,600+ 모델·조건부 라우팅).
 4. 문제점 (단점/한계)
  - 라우터 오버헤드: 결정 시간(time-to-route). 설계가 나쁘면 오히려 전체 지연 증가.
- - 오분류 위험(핵심): 어려운 쿼리를 쉽다고 과신→소형 모델로 보내면 환각·재시도·"조용한 품질 저하(silent quality regression)" 로 절감이 증발. ➕ (완화: 배포 전 CI 게이트로 대표 50~500 케이스를 groundedness·context adherence·LLM-as-judge로 검증.)
+ - 오분류 위험(핵심): 어려운 쿼리를 쉽다고 과신→소형 모델로 보내면 환각·재시도·"조용한 품질 저하(silent quality regression)" 로 절감이 증발. (완화: 배포 전 CI 게이트로 대표 50~500 케이스를 groundedness·context adherence·LLM-as-judge로 검증.)
  - 임계값·드리프트 관리: 임계값 튜닝이 까다롭고, 모델·트래픽 분포가 바뀌면 재보정 필요.
 5. 사용 예시
  - NotDiamond × Rootly(SRE): 라우팅 도입으로 SRE 벤치마크 정확도 평균 +39%; NotDiamond 고객사에 Hugging Face·Dropbox·IBM·DoorDash·American Express 포함(https://www.digitalapplied.com/blog/llm-model-routing-2026-cost-quality-optimization-engineering-guide).
