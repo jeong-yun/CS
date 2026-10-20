@@ -1916,7 +1916,7 @@ CNAPP(Cloud Native Application Protection Platform) (작성일: 26.03.27)(수정
  - Google AI Blog: Federated Learning: Collaborative Machine Learning without Centralized Training Data(https://ai.googleblog.com/2017/04/federated-learning-collaborative.html): 연합 학습의 개념을 정립한 구글의 기술 블로그로, 실시간 기기 학습이 어떻게 대규모 시스템에서 작동하는지 파악할 수 있는 표준 자료
  - Enabling privacy-preserving AI training on everyday devices — MIT News (2026.04.29)(https://news.mit.edu/2026/enabling-privacy-preserving-ai-training-everyday-devices-0429): 2026년 4월 말에 발표된 MIT의 최신 연구 자료로, 저사양 기기에서도 연합 학습을 80% 이상 빠르게 수행하는 실무적 돌파구를 제시하고 있습니다. 사용자의 '에지(Edge) 기반 AI' 지식을 확장하기에 가장 좋은 자료
 
-[Privacy]차분 프라이버시(Differential Privacy) (작성일: 26.02.19)(수정일 26.03.30, 04.01, 04.08, 04.21, 05.04, 05.14, 10.14)
+[Privacy]차분 프라이버시(Differential Privacy) (작성일: 26.02.19)(수정일: 26.03.30, 04.01, 04.08, 04.21, 05.04, 05.14, 10.14)
  - 부제: 한 개인의 기여 영향을 수학적으로 상한하는 노이즈 주입 — 보장의 범위와 한계
 1. 개념: 
  - 통계 결과에 수학적으로 정의된 무작위 노이즈를 더해, 데이터셋에 특정 개인의 기록이 포함되었는지 여부가 출력 분포에 미치는 영향을 정해진 상한 이내로 제한하는 기법. 이 상한은 프라이버시 예산 ε로 표현됨.

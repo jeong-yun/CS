@@ -820,7 +820,7 @@ LOO 재학습 회피: 샘플마다 재학습하지 않고 근사로 대체.
  - 깊이 혼합(MoD): 유사: 단위별 복잡도를 판정기로 읽어 연산을 차등 배분하는 동적 연산 할당 착상이 동형이며, 둘 다 판정 부품(라우터/엔트로피 모델)을 별도로 둠. / 차이: 배분의 축 — 토큰이 층을 통과할지 결정(깊이) ↔ 입력 단위 자체를 재정의해 시퀀스 길이를 압축(길이). / 경계: 이중 해리 성립(MoD는 서브워드 전제, BLT는 층 스킵 미사용) → 별도+상호참조, 원리상 결합 가능.
  - 확산 언어 모델(dLLM): 유사: 둘 다 "고정 토큰을 좌→우로 하나씩" 이라는 표준 LLM 전제를 정면으로 교체하며 효율을 노림. / 차이: 교체 대상 — 생성 순서(AR 폐기, 병렬 복원) ↔ 입력 표현 단위(AR 유지, 토크나이저 폐기). / 경계: 축이 겹치지 않아 직교이며 원리상 결합 가능.
  - 선형 어텐션 / Linear SSM: 유사: 시퀀스가 길어질 때의 O(N²) 병목을 겨냥하며, 바이트 단위는 시퀀스가 길어 이 병목이 더 첨예. / 차이: 완화 방식 — 어텐션 연산자를 O(N)으로 교체 ↔ 연산자는 유지하고 패칭으로 N을 줄임. / 경계: 직교하며 결합 가능(패치 시퀀스에 선형 연산자 적용).
- - KV 캐시 압축·압출: 유사: 추론 시 메모리·처리량 개선이 목표이며 동일한 서빙 커널 계층에서 만남. / 차이: 개입 시점 — 학습된 모델에 붙는 사후 최적화 ↔ 사전학습부터 강제되는 네이티브 아키텍처. / 경계: 직교하나 충돌 지점 존재(가변 패치가 고정 토큰 전제 커널과 상충, §4).
+ - KV 캐시 압축·축출: 유사: 추론 시 메모리·처리량 개선이 목표이며 동일한 서빙 커널 계층에서 만남. / 차이: 개입 시점 — 학습된 모델에 붙는 사후 최적화 ↔ 사전학습부터 강제되는 네이티브 아키텍처. / 경계: 직교하나 충돌 지점 존재(가변 패치가 고정 토큰 전제 커널과 상충, §4).
  - 추측적 디코딩: 유사: 추론 가속이 목적이고, 둘 다 "무엇을 한 단위로 볼 것인가"에 성능이 좌우됨. / 차이: 개입 층위 — 가중치 불변의 디코딩 절차 ↔ 입력 표현·아키텍처. 특히 별도 초안 모델 방식이 요구하는 어휘·토크나이저 정합 전제가 토크나이저 부재로 무효화. / 경계: 직교하나 자기추측형 변형으로만 결합 여지.
  - 1-bit LLM / BitNet b1.58 [판정 선례]: 유사: '네이티브 학습 ↔ 사후 적용' 판정 축이 동일 — 둘 다 사전학습부터 적용해야 이득을 얻고 사후 전환이 불가. / 차이: 대상 차원이 가중치 비트폭 ↔ 입력 표현 단위로 기술적 접점 없음. / 경계: 기술 비교가 아니라 §4 "사후 부착 불가" 판정의 근거로만 인용.
 7. 변형·확장 상세
@@ -990,7 +990,7 @@ LOO 재학습 회피: 샘플마다 재학습하지 않고 근사로 대체.
  - [도구/프레임워크] Microsoft. bitnet.cpp (GitHub: microsoft/BitNet, https://github.com/microsoft/BitNet): 전용 런타임 근거 — 삼진 가중치 CPU·GPU 커널 공식 구현체(NPU 예정), 범용 프레임워크에서 이득 미실현의 반증
  - [도구/프레임워크] Hugging Face. microsoft/bitnet-b1.58-2B-4T (https://huggingface.co/microsoft/bitnet-b1.58-2B-4T): §5 근거 — 2B4T 공개 가중치
 
-[Perf]네이티브 희소 어텐션(Native Sparse Attention, NSA) (작성일: 26.08.24)(수정일: 2026.09.17, 10.08)
+[Perf]네이티브 희소 어텐션(Native Sparse Attention, NSA) (작성일: 26.08.24)(수정일: 26.09.17, 10.08)
 1. 정의 및 개념
  - DeepSeek·북경대 협업 연구팀이 2025년 2월 제안한 희소 어텐션 아키텍처(ACL 2025 Best Paper). 사전학습 단계부터 동적 희소성 패턴을 훈련 그래프에 내재화해, 수십만~수백만 토큰 문맥의 연산량 폭발에 대응하는 방식.
  - 등장 배경
@@ -1530,7 +1530,7 @@ LOO 재학습 회피: 샘플마다 재학습하지 않고 근사로 대체.
  - [논문·반박의 반박] Steering LLMs? Actually, Sparse Autoencoders can outperform simple baselines (arXiv:2605.31183, https://arxiv.org/abs/2605.31183): §4 근거 — 논쟁이 현재진행형임을 뒷받침
  - [논문·응용] Breaking Bad Tokens: Detoxification of LLMs Using Sparse Autoencoders (arXiv:2505.14536, https://arxiv.org/pdf/2505.14536): §5 근거 — 특징 단위 가역 억제 기반 디톡스
 
-[Perf]확산 언어 모델(Discrete Diffusion Language Model, dLLM) - 이산 마스크 확산(Discrete/Masked Diffusion) 방식 (작성일: 26.08.06)(수정일: 26.08.07))
+[Perf]확산 언어 모델(Discrete Diffusion Language Model, dLLM) - 이산 마스크 확산(Discrete/Masked Diffusion) 방식 (작성일: 26.08.06)(수정일: 26.08.07)
 1. 정의 및 개념
  - 이미지 생성의 디퓨전(확산) 원리를 연속 공간이 아닌 불연속(Discrete) 텍스트 토큰 공간에 적용한 생성형 언어 모델. 기초는 D3PM(이산 상태공간으로 확산을 일반화).
  - 기존 LLM이 자기회귀(AR; 다음 한 토큰만 순차 예측) 인 반면, dLLM은 [MASK]로 덮인 문장 틀 전체를 놓고 반복 정제(Iterative Denoising) 로 동시다발 완성 → 임의 위치 삽입(Infilling) 과 병렬 생성이 가능.
@@ -1611,7 +1611,7 @@ LOO 재학습 회피: 샘플마다 재학습하지 않고 근사로 대체.
  - 선형 상태 공간 모델(Linear SSMs / Mamba): 유사: 같은 비트랜스포머 효율 시퀀스 계보이며 둘 다 KV 캐시 병목 완화를 목표. / 차이: 연산자 — 입력 의존(시변) 선택적 SSM ↔ 게이트 합성곱 + GQA. 또한 완전 O(1) 노선은 순수 SSM/선형 RNN 쪽이고 LFM2는 어텐션을 일부 남긴 절충안. / 경계: 이중 해리 성립(SSM은 LFM 없이, LFM2는 SSM 점화식 없이 각각 성립) → 별도.
  - 테스트 타임 트레이닝(TTT): 유사: 비트랜스포머 효율 계열이며 문맥을 상태로 흡수. / 차이: 갱신 대상 — 추론 중 가중치를 갱신 ↔ 가중치 고정, 은닉 상태만 전이. / 경계: 직교하며 결합 가능.
  - 희소 전문가 혼합(Sparse MoE): 유사: LFM2 대형 변형이 실제로 MoE를 결합(8.3B/활성 1.5B). / 차이: 축 — 총 파라미터 대비 활성 FLOPs 분리 ↔ 시퀀스 믹싱 연산자 설계. / 경계: 직교하며 결합 사례 존재.
- - KV 캐시 압축·압출: 유사: 문맥 누적 메모리 병목을 겨냥하고 같은 서빙 스택에서 만남. / 차이: 개입 시점 — 어텐션 캐시에 사후 적용 ↔ 캐시를 갖는 블록 수를 설계 단계에서 축소. / 경계: 직교하며 결합 가능.
+ - KV 캐시 압축·축출: 유사: 문맥 누적 메모리 병목을 겨냥하고 같은 서빙 스택에서 만남. / 차이: 개입 시점 — 어텐션 캐시에 사후 적용 ↔ 캐시를 갖는 블록 수를 설계 단계에서 축소. / 경계: 직교하며 결합 가능.
  - 1-비트 LLM / BitNet b1.58: 유사: 온디바이스 실행을 겨냥한 효율 계열이며 둘 다 사전학습부터 적용. / 차이: 줄이는 차원 — 가중치 비트폭 ↔ 시퀀스 믹싱 구조. / 경계: 직교하며 결합 가능.
  - 시맨틱 라우팅: 유사: 비용 절감 목표를 공유하고, LFM2가 저가 로컬 모델 후보로 배치됨. / 차이: 층위 — 요청을 어느 모델로 보낼지의 게이트웨이 ↔ 그 후보 모델의 아키텍처. / 경계: 층이 달라 직교이며 결합이 자연스러움.
  - 표준 트랜스포머: 유사: 대규모 코퍼스로 다음 토큰을 예측하는 파운데이션 모델이며, LFM2도 GQA 어텐션 블록을 일부 보유. / 차이: 어텐션 블록 비율 — 전 블록이 어텐션 ↔ 16블록 중 6블록만 어텐션. / 경계: KV 캐시를 '제거'가 아니라 '축소'하는 절충이라는 점이 정체성.
@@ -2445,12 +2445,12 @@ DPO는 보상 모델·강화학습 단계를 제거 - "A가 B보다 낫다"는 �
  - [논문·핵심기법] Zelikman et al. STaR: Bootstrapping Reasoning With Reasoning (NeurIPS 2022, arXiv:2203.14465, https://arxiv.org/abs/2203.14465): §7-2 계보 근거 — 정답을 맞힌 rationale만 필터링해 파인튜닝하는 선행 기법(QA 데이터 의존)
  - [논문·핵심기법] Goyal et al. Think Before You Speak: Training Language Models With Pause Tokens (arXiv:2310.02226, https://arxiv.org/abs/2310.02226): §6 구분 근거 — 무의미 토큰으로 연산 시간만 확보하는 방식(의미 있는 사고 생성과 구분)
 
-[Perf]KV 캐시 압축 및 압출(KV Cache Compression & Eviction) (작성일: 26.07.06)
+[Perf]KV 캐시 압축 및 축출(KV Cache Compression & Eviction) (작성일: 26.07.06)
 1. 정의 및 개념
  - LLM이 생성한 토큰을 기억하려 VRAM에 저장하는 'Key·Value 행렬의 크기를 줄이거나(Compression) 불필요한 토큰을 메모리에서 제거(Eviction)'하는 추론 최적화 기술.
  - 2026년 o1·DeepSeek-R1 같은 장문 추론(Long-output Reasoning) 모델이 대세가 되며 컨텍스트가 길어질수록 KV 캐시가 VRAM을 독점하는 병목이 심화. 이를 풀기 위해 H2O(Heavy Hitter Oracle), StreamingLLM, 잠재공간 컴팩션(Attention Matching) 등이 활용됨. (KV 재사용인 Context Caching과 보완, KV 제거인 Linear Attention·TTT와는 대안.)
-2. 작동 원리(압출 / 압축·양자화 / 컴팩션)
- ⓐ 헤비 히터 압출(H2O): 어텐션 가중치는 소수 토큰이 중요도 대부분을 차지하는 편중을 보임. 누적 어텐션이 높은 핵심 토큰(Heavy Hitters) + 최근 토큰만 남기고 중간 토큰을 영구 삭제.(Zhang 외, NeurIPS 2023 — NVIDIA가 아님; 20% heavy hitter로 HF Accelerate 대비 최대 29× 처리량.)
+2. 작동 원리(축출 / 압축·양자화 / 컴팩션)
+ ⓐ 헤비 히터 축출(H2O): 어텐션 가중치는 소수 토큰이 중요도 대부분을 차지하는 편중을 보임. 누적 어텐션이 높은 핵심 토큰(Heavy Hitters) + 최근 토큰만 남기고 중간 토큰을 영구 삭제.(Zhang 외, NeurIPS 2023 — NVIDIA가 아님; 20% heavy hitter로 HF Accelerate 대비 최대 29× 처리량.)
  ⓑ 어텐션 싱크 보존(StreamingLLM): LLM이 맨 앞 2~4개 토큰에 비정상적으로 높은 어텐션을 주는 Attention Sink 현상을 이용, 초기 토큰 + 최신 슬라이딩 윈도우만 유지해 무한 스트리밍 가능(대가: 중간 문맥 접근 상실).
  ⓒ 양자화(Quantization): K/V를 FP16 → INT8·INT4로 저비트화(KIVI 등; OpenVINO는 INT8 per-channel 기본·INT4 지원). INT4는 이론상 1/4 메모리.
  ⓓ 잠재공간 컴팩션(Attention Matching): 원래 어텐션 거동을 재현하는 더 작은 K/V 집합을 latent space에서 구성해 정확도 손실 없이 메모리를 최대 50배(경우에 따라 100배) 압축하고, 컴팩션 시간을 GPU-시간 → 분·초로 단축(arXiv:2602.16284, 2026).
@@ -2460,10 +2460,10 @@ DPO는 보상 모델·강화학습 단계를 제거 - "A가 B보다 낫다"는 �
 4. 문제점(단점/한계)
  - 바늘 찾기(Needle-in-a-Haystack) 실패: 중간 토큰을 지능적으로 지워도, 먼 과거 문맥에 숨은 특정 고유명사·수치 인출 작업에서는 정확도가 떨어질 수 있음.
  - 추론(Reasoning) 모델 민감성: o1·R1류 장문 추론은 KV 압축에 특히 취약 — 중간 추론 단계가 삭제되면 정답률이 하락할 수 있어(최근 "Pitfalls of KV Cache Compression" 등 경고), 압축률을 보수적으로 잡아야 함.
- - 커스텀 커널 구현 오버헤드: FlashAttention 연산과 압출 로직을 GPU 레벨에서 '커널 융합(Kernel Fusion)'해야 제 성능이 나와 엔지니어링 난도가 높음.
+ - 커스텀 커널 구현 오버헤드: FlashAttention 연산과 축출 로직을 GPU 레벨에서 '커널 융합(Kernel Fusion)'해야 제 성능이 나와 엔지니어링 난도가 높음.
 5. 사용 예시
  - 24시간 스트리밍 챗봇: 금융·고객센터 실시간 상담 에이전트에서 StreamingLLM으로 KV 크기를 고정해 수일~수주 대화에도 서버 리소스를 평탄화.
- - 제한 GPU에서 대규모 로그·코드 분석: 수만 줄의 (예: ClickHouse) 로그 분석 모델을, PagedAttention(vLLM) + H2O 압출을 연동해 가성비 하드웨어에서 대규모 추론 구동.
+ - 제한 GPU에서 대규모 로그·코드 분석: 수만 줄의 (예: ClickHouse) 로그 분석 모델을, PagedAttention(vLLM) + H2O 축출을 연동해 가성비 하드웨어에서 대규모 추론 구동.
 6. 참고 문헌
  - H2O: Heavy-Hitter Oracle for Efficient Generative Inference (arXiv:2306.14048), https://arxiv.org/abs/2306.14048
  - Efficient Streaming LMs with Attention Sinks / StreamingLLM (arXiv:2309.17453, https://arxiv.org/abs/2309.17453)
@@ -2993,7 +2993,7 @@ AI 에이전트 메모리 아키텍처(AI Agent Memory Architecture) (작성일:
  - MCP: 에이전트–도구 연결의 표준 규격(도구 사용 ④의 배선).
  - 보안 측 대응 항목: 에이전틱 AI 보안·AI 에이전트 가드레일·에이전틱 권한 제어(Security & Trust) — §4의 보안 위협·과도한 대리 권한을 다룸.
 
-온디바이스 AI(On-Device AI) (작성일: 2026-04-09)
+온디바이스 AI(On-Device AI) (작성일: 26.04.09)
 1. 개념
  - 멀리 떨어진 클라우드 서버를 거치지 않고, 스마트폰, 로봇, PC, 자율주행차 등 기기 자체(Edge)에서 AI 모델을 직접 실행하는 기술.(데이터가 기기 외부로 나가지 않으므로 프라이버시 보호가 강력하며, 인터넷 연결 없이도 실시간 추론 가능.)
 2. 작동 원리
@@ -3383,7 +3383,7 @@ MCP(Model Context Protocol) (작성일: 26.02.04) (수정일: 26.04.17, 07.29, 0
  - [도구/프레임워크] mcp-cve-project (https://github.com/mcp-security-project/mcp-cve-project): §4 근거 — 60일간 30+ CVE·약 43% 커맨드 인젝션 집계
  - [도구/프레임워크] ClickHouse MCP Server (https://github.com/ClickHouse/mcp-clickhouse): §5 근거 — 데이터 스토어를 도구화한 문서화 구현체
 
-XAI(Explainable Artificial Intelligence) (작성일: 23. 03. 21)
+XAI(Explainable Artificial Intelligence) (작성일: 23.03.21)
  - 개념: 인공지능 모델의 의사 결정 과정을 이해하기 쉽게 설명할 수 있는 기술. 
  - 생성 이유: 인공지능 모델은 대개 높은 정확도와 예측 능력을 가지고있지만, 이 모델이 어떻게 작동하는지 이해하기 어려움 -> 모델이 어떻게 작동하는지, 어떤 입력에 대해 어떤 결과를 내놓는지, 그리고 모델이 어떤 특징을 고려하여 결정을 내리는지 등을 설명하는 기술
  - 목적
