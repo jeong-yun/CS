@@ -88,5 +88,5 @@
 
 ## 🤖 작성 도구
 
-[Agent Office](https://github.com/jeong-yun/Project/tree/main/LLM/Agent_office) 의 **📚 개념 작성** 페이지가 이 조건으로 항목을 검증·작성합니다.
+[Agent Office](https://github.com/jeong-yun/Project/tree/main/LLM/Agent_office) 의 **📚 개념 편집 팀**(메인 화면 팀 선택)이 이 조건으로 항목을 검증·작성합니다.
 초안 입력 → 관련 기존 항목 자동 비교 → 개념 편집 팀(팩트체크·계보 분석·수석 에디터·편집장) 검토 → 사람 승인 → 파일 반영(통합 시 old_term 이관·요약 갱신) → 커밋·푸시.
