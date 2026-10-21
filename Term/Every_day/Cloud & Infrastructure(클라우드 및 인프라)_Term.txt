@@ -426,6 +426,7 @@
 1. 정의 및 개념
  - 고차원 벡터를 다층(Multi-layer) 그래프로 색인해, 수억 개 중 근사 최근접 이웃(ANN)을 대수적 시간 O(log N) 로 찾는 인덱싱 알고리즘. 데이터 구조의 스킵 리스트(Skip List) 와 그래프 이론의 작은 세상(Small World) 을 벡터 공간에 이식.
 - Milvus·Qdrant·Pinecone·pgvector·FAISS 등 벡터 DB의 사실상 표준 인덱스. RAG 검색·추천·시맨틱 검색·가드레일 벡터 매칭 등에 광범위 사용(가드레일은 응용의 하나로 일반화).
+- GraphRAG와 달리 HNSW는 벡터 ANN 인덱스 자료구조임. '그래프'라는 용어는 같아도 목적과 메커니즘이 다름.
 2. 작동 원리
 ⓐ 다층 계층화(Hierarchical Layers): 노드를 지수 감소 확률로 여러 층에 배정(skip-list식). 최상위 층은 성긴(Sparse) 노드 + 장거리 간선, Layer 0은 전체 노드가 조밀(Dense).
 ⓑ 전역 탐색(Greedy Routing): 쿼리 벡터가 최상위 진입점(Enter Point)에서 시작, 더 가까운 이웃으로 탐욕 점프하며 장거리 간선으로 대략적 구역을 급속히 좁힘.

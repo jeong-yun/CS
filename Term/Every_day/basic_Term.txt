@@ -113,3 +113,8 @@ MergeTree: ClickHouse의 기본 테이블 엔진 계열로, 삽입 데이터를 
 Newton-Schulz 반복(Newton-Schulz iteration): 행렬의 polar factor 또는 직교 성분을 SVD 없이 반복적으로 근사하는 수치기법
 직교화(orthogonalization): 갱신 행렬의 방향 편중을 줄이도록 직교 성분에 맞춰 변환하는 과정
 모멘텀(momentum): 이전 그래디언트를 누적해 갱신 방향을 안정화하는 1차 상태 변수
+지식 그래프(knowledge graph): 엔티티와 관계를 노드·엣지로 표현한 구조화 그래프
+커뮤니티 요약(community summary): 그래프 군집을 상위 수준 문맥으로 압축한 요약 텍스트
+Global Search: 커뮤니티 요약을 병렬 취합해 전역 질의에 대응하는 검색 모드
+Local Search: 질의 관련 엔티티를 진입점으로 관계·원문 텍스트 유닛·커뮤니티 보고서를 모아 문맥을 구성하는 검색 모드
+DRIFT Search: 커뮤니티 수준 문맥에서 시작해 로컬 그래프 탐색으로 정제하는 GraphRAG 검색 모드
