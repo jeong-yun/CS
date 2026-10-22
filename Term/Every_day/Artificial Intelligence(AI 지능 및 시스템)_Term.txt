@@ -1,3 +1,75 @@
+[Perf]제한적 슬라이딩 윈도우 재생(Sliding-Window Attention Bounded Replay, SWA Bounded Replay) (작성일: 26.10.22)
+1. 정의 및 개념
+ - 공통 접두사(prefix, 여러 요청이 공유하는 앞부분 입력)를 재사용하는 LLM 추론 환경에서, 슬라이딩 윈도우 어텐션(SWA, 최근 고정 길이 토큰만 보는 로컬 어텐션)용 로컬 KV(Key·Value) 상태를 계속 저장하지 않고, 캐시 적중 시 마지막 윈도우 구간만 다시 순전파해 복원하는 배포 최적화 메커니즘임
+ - 핵심은 저장된 KV를 더 작게 만드는 압축이 아니라, 저장하지 않은 SWA 로컬 상태를 제한 범위 재연산(replay, 필요한 구간 재계산)으로 재구성하는 방식임
+ - 현재 확인 가능한 공개 근거상 DeepSeek-V4.1-Flash와 vLLM 지원 문맥에서 확인되는 명칭임
+ - 등장 배경
+   ○ 문제: 장문 컨텍스트·멀티 에이전트 추론에서 prefix caching이 적중해도 SWA 로컬 KV까지 계속 보관할 경우 persistent KV footprint 증가
+   ○ 원인: 단순 캐시 보존은 메모리 부담이 크고, 일반 KV 압축·축출은 공통 prefix 재사용 뒤 누락된 SWA 로컬 윈도우 복원 문제를 직접 해결하지 못함
+   ○ 해결: 마지막 128토큰만 재연산해 SWA 윈도우를 복원하는 bounded replay 방식 도입
+2. 작동 원리
+ ⓐ 공통 prefix가 cache hit 되는 상황에서 전역 문맥용 상태와 SWA 로컬 상태를 분리해 취급함
+ ⓑ 저장된 전역 상태는 재사용하고, 저장하지 않았거나 누락된 SWA 로컬 상태만 복원 대상으로 지정함
+ ⓒ hit 경계 직전 마지막 128토큰을 다시 순전파해 SWA 윈도우를 재구성함
+ ⓓ 재연산 범위를 고정된 tail window로 제한해 캐시 저장량과 replay compute 사이의 절충점 확보
+ ⓔ vLLM 설명 기준 목적은 exactness보다 효율을 우선하는 trade-off임
+ - 공개 근거로 확인 가능한 범위는 128토큰 replay, SWA window clipping, persistent KV footprint 절감, vLLM 지원 추적까지임
+ - 초안의 특정 레이어 번호, FP8 고정 저장, AIME 2026 정답률 영향은 제공 근거 범위에서 확정 불가함
+3. 좋아진 점 (장점/개선점)
+ - SWA 로컬 KV의 영구 저장 부담 완화로 persistent KV footprint 감소 가능
+ - 공통 prefix 재사용이 많은 워크로드에서 에이전트 처리량 향상 가능
+   ○ vLLM 공개 워크로드 기준 5x agentic throughput 보고
+ - 공통 prefix 재사용이 많은 워크로드에서 첫 토큰 생성 지연(TTFT, Time To First Token) 단축 가능
+   ○ vLLM 공개 워크로드 기준 TTFT 30~40% 감소 보고
+ - 저장 공간 절감과 제한 재연산 비용 사이의 운영상 절충점 제공
+4. 문제점 (단점/한계)
+ - bit-exactness 미보장 가능성
+   ○ 전체 prefix를 처음부터 동일 경로로 계산한 결과와 내부 수치가 같지 않을 수 있음
+ - replay compute 비용 존재
+   ○ 캐시 I/O와 저장량을 줄이는 대신 마지막 윈도우 재연산 필요
+ - 성능 이득의 조건 의존성 큼
+   ○ 5x throughput, TTFT 30~40% 감소는 vLLM 공개 워크로드 기준이며, 엔진·배치 크기·동시성·프롬프트 길이·모델 구현에 따라 달라질 수 있음
+ - 관측성·검증 용도 제약 가능성
+   ○ 전체 prefix 구간의 토큰별 logprobs(토큰 로그확률)나 hidden state(은닉 상태)를 동일 계산 경로로 확보해야 하는 작업에는 부적합 가능
+ - 모델 구조·추론 엔진 의존성 큼
+   ○ SWA 로컬 상태 분리, prefix cache hit 처리, scheduler 재연산 경로가 맞아야 하므로 범용 모든 LLM에 독립적으로 적용된다고 보기 어려움
+ - 후속 반박·대규모 상용 채택 근거 제한
+   ○ 제공 근거 내 체계적 반박 논문 및 광범위 상용 운영 사례 확인되지 않음
+5. 사용 예시
+ - 문서화 — 원전·프레임워크 평가
+   ○ DeepSeek-V4.1-Flash를 vLLM에서 운용하는 공통 prefix 재사용형 agentic inference 워크로드
+ - 응용 추정·비문서화
+   ○ 긴 공통 문맥을 여러 에이전트가 공유하고 각 에이전트가 짧은 꼬리 질의를 반복하는 멀티 에이전트 분석 백엔드
+   ○ 동일 코드 저장소 문맥을 반복 재사용하는 대규모 코드베이스 코딩 어시스턴트 백엔드
+   ○ 공통 로그 묶음을 공유한 뒤 여러 분석 프롬프트를 병렬 실행하는 장문 로그 분석·보안 관제 파이프라인
+ - 부적합 사례
+   ○ 전체 입력 토큰의 logprobs·hidden state를 bit-exact하게 수집해야 하는 평가·감사 워크로드
+   ○ prefix 재사용률이 낮고 각 요청이 짧아 replay와 scheduler 오버헤드가 이득보다 큰 워크로드
+6. 관계(기존 개념과 비교)
+ - KV 캐시 압축 및 축출(KV Cache Compression & Eviction): 유사: 장문 추론의 KV 메모리 부담 완화 목적 공유 / 차이: 압축·축출은 저장된 KV 자체를 줄이거나 제거하는 축이고, SWA Bounded Replay는 미저장 SWA 로컬 상태를 마지막 윈도우 재연산으로 복원하는 축임 / 경계: 이중 해리 성립으로 별도 항목, 하위 편입 불가
+ - Prefix Caching / Context Caching: 유사: 공통 prefix 재사용과 cache hit 활용 목적 공유 / 차이: Prefix/Context Caching은 저장된 접두사 KV 재사용이 중심이고, 본 항목은 재사용만으로 부족한 SWA 로컬 상태를 replay로 보완함 / 경계: 보완 관계이나 동일 개념 아님
+ - 비트맵 압축 기반 슬라이딩 윈도우 집계: 유사: 슬라이딩 윈도우와 메모리 절감이라는 표면적 유사성 / 차이: DB 집계 상태 압축 vs LLM 어텐션 상태 복원 / 경계: 도메인·원리 모두 달라 무관
+ - 워터마크 기반 스트리밍 타임시리즈 정렬 및 슬라이딩 윈도우: 유사: 윈도우 경계 관리라는 표면적 유사성 / 차이: 이벤트 시간 정렬·스트리밍 집계 vs 추론 캐시 복원 / 경계: 용어 유사성만 존재, 기술 계보 무관
+ - 격리 로그(DLQ) 자동 백필 및 리플레이 파이프라인: 유사: replay 용어 사용 / 차이: 데이터 재처리·복구 vs LLM 추론 중간상태 재구성 / 경계: 메커니즘·대상 모두 별개
+7. 변형·확장 상세
+ 1) Encoder-side SWA bounded replay
+   ○ 개념: prefix cache hit 이후 encoder 측 SWA 로컬 KV가 없거나 재사용 불가한 경우 마지막 윈도우만 재연산해 복원하는 형태
+   ○ 작동원리: 저장된 전역 KV는 재사용하고, hit 경계 직전의 128토큰 구간을 다시 계산해 per-layer SWA window를 재구성함
+   ○ 장점: SWA 로컬 KV의 persistent 저장 부담 완화
+   ○ 단점(고유): exactness trade-off와 128토큰 재연산 compute 비용 발생
+   ○ 예시: DeepSeek-V4.1-Flash의 vLLM 지원 문맥에서 확인
+ 2) Decoder-side SWA bounded replay
+   ○ 개념: decoder 측에서도 SWA bounded replay가 언급되는 확장 형태
+   ○ 작동원리: 제공 근거상 명칭과 방향성은 확인되나, 공개 검색 결과만으로 세부 레이어 경로·연산 생략 범위 확정 불가
+   ○ 장점: decoding 단계의 로컬 SWA 상태 관리 비용 절감 가능성
+   ○ 단점(고유): 세부 구현·평가 조건 확인 제한, 범용 기법으로 일반화 불가
+   ○ 예시: DeepInfer 관련 보도에서 decoder SWA bounded replay 언급 확인
+참고 문헌
+ - [도구/프레임워크] vLLM Team. DeepSeek-V4.1-Flash on vLLM: 5x Agentic Throughput Since Day 0 (vLLM Blog, 2026-10-07, https://vllm.ai/blog/2026-10-07-deepseek-v41-flash): SWA bounded replay·128토큰 replay·vLLM 워크로드 기준 처리량 5x·TTFT 30~40% 근거
+ - [논문·핵심기법] DeepSeek-AI. DeepSeek-V4.1-Flash: Pushing the Limits of KV Cache Compression (arXiv:2609.19969, https://arxiv.org/abs/2609.19969): persistent KV footprint 절감과 SWA Bounded Replay 도입 근거
+ - [도구/프레임워크] vLLM GitHub. [Model Support] DeepSeek V4.1 Tracking Issue #57448 (GitHub Issue, https://github.com/vllm-project/vllm/issues/57448): vLLM 지원 추적과 SWA bounded replay 구현 범위 근거
+ - [도구/프레임워크] Learn AI Visually. vLLM 0.31 — SWA bounded replay — What does it mean? (Explainer, https://learnaivisually.com/ai-explained/vllm-0-31-swa-bounded-replay-prefix-cache): PR #56227 기반 prefix hit 후 마지막 윈도우 재계산 해설
+
 인공지능(AI) (작성일: 26.02.04)(수정일: 26.06.11)
 1. 발전 단계
  - 구분: ANI(Artificial Narrow Intelligence) -> AGI(Artificial General Intelligence) -> ASI(Artificial Super Intelligence)
@@ -2503,6 +2575,7 @@ DPO는 보상 모델·강화학습 단계를 제거 - "A가 B보다 낫다"는 �
 [Perf]KV 캐시 압축 및 축출(KV Cache Compression & Eviction) (작성일: 26.07.06)
 1. 정의 및 개념
  - LLM이 생성한 토큰을 기억하려 VRAM에 저장하는 'Key·Value 행렬의 크기를 줄이거나(Compression) 불필요한 토큰을 메모리에서 제거(Eviction)'하는 추론 최적화 기술.
+ - 단, 제한적 슬라이딩 윈도우 재생(SWA Bounded Replay)처럼 로컬 캐시를 저장하지 않고 캐시 적중 후 부분 재연산으로 복원하는 메커니즘은 본 항목의 압축·축출 계열과 원리가 다름.
  - 2026년 o1·DeepSeek-R1 같은 장문 추론(Long-output Reasoning) 모델이 대세가 되며 컨텍스트가 길어질수록 KV 캐시가 VRAM을 독점하는 병목이 심화. 이를 풀기 위해 H2O(Heavy Hitter Oracle), StreamingLLM, 잠재공간 컴팩션(Attention Matching) 등이 활용됨. (KV 재사용인 Context Caching과 보완, KV 제거인 Linear Attention·TTT와는 대안.)
 2. 작동 원리(축출 / 압축·양자화 / 컴팩션)
  ⓐ 헤비 히터 축출(H2O): 어텐션 가중치는 소수 토큰이 중요도 대부분을 차지하는 편중을 보임. 누적 어텐션이 높은 핵심 토큰(Heavy Hitters) + 최근 토큰만 남기고 중간 토큰을 영구 삭제.(Zhang 외, NeurIPS 2023 — NVIDIA가 아님; 20% heavy hitter로 HF Accelerate 대비 최대 29× 처리량.)
@@ -2519,7 +2592,10 @@ DPO는 보상 모델·강화학습 단계를 제거 - "A가 B보다 낫다"는 �
 5. 사용 예시
  - 24시간 스트리밍 챗봇: 금융·고객센터 실시간 상담 에이전트에서 StreamingLLM으로 KV 크기를 고정해 수일~수주 대화에도 서버 리소스를 평탄화.
  - 제한 GPU에서 대규모 로그·코드 분석: 수만 줄의 (예: ClickHouse) 로그 분석 모델을, PagedAttention(vLLM) + H2O 축출을 연동해 가성비 하드웨어에서 대규모 추론 구동.
-6. 참고 문헌
+6.관계(기존개념비교)
+ - 제한적 슬라이딩 윈도우 재생(SWA Bounded Replay): 유사: 장문 추론의 KV 메모리 부담 완화 목적 공유 / 차이: 압축·축출은 저장된 KV를 줄이거나 제거하는 축이고, SWA Bounded Replay는 미저장 SWA 로컬 상태를 마지막 윈도우 재연산으로 복원하는 축임 / 경계: 이중 해리 성립으로 별도 항목, 하위 편입 불가
+
+7.참고문헌
  - H2O: Heavy-Hitter Oracle for Efficient Generative Inference (arXiv:2306.14048), https://arxiv.org/abs/2306.14048
  - Efficient Streaming LMs with Attention Sinks / StreamingLLM (arXiv:2309.17453, https://arxiv.org/abs/2309.17453)
  - Fast KV Compaction via Attention Matching (arXiv:2602.16284, 2026, https://arxiv.org/abs/2602.16284)
