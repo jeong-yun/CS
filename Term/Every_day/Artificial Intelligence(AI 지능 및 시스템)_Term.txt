@@ -1,3 +1,35 @@
+인공지능(AI) (작성일: 26.02.04)(수정일: 26.06.11)
+1. 발전 단계
+ - 구분: ANI(Artificial Narrow Intelligence) -> AGI(Artificial General Intelligence) -> ASI(Artificial Super Intelligence)
+ - 명칭: ANI(인공 협소 지능(약인공지능)) -> AGI(인공 일반 지능(강인공지능)) -> ASI(인공 초지능)
+ - 범위: ANI(특정 작업 한정(Narrow)) -> AGI(모든 지적 작업(General)) -> ASI(인간의 이해 범주 밖(Universal))
+ - 능력: ANI(정해진 규칙/데이터 내 최적화) -> AGI(자율적 학습, 추론, 전이 학습) -> ASI(재귀적 자기 개선을 통한 진화)
+ - 관계: ANI(인간을 보조하는 도구) -> AGI(인간과 대등한 동료) -> ASI(인류를 초월한 관리자/신)
+ - 상태: ANI(완성(멀티모달)) -> AGI(진행 중(에이전트, 추론모델 상용화로 임계점 진입 중)) -> ASI(이론적 가설(Theoretical))
+2. AGI 단계(Google DeepMind 기준)
+ - Level 1(Emergent): 비숙련 성인과 대등한 수준(초보적), 예시: GPT-4, Claude 3, Gemini 1.5
+ - Level 2(Competent): 숙련된 성인의 상위 50% 수준(숙련), 예시: GPT-o1/o3(코딩/수학 등 일부 영역에서 가능)
+ - Level 3(Expert): 숙련된 성인의 상위 10% 수준(전문가), 예시: 미도달
+ - Level 4(Virtuoso): 숙련된 성인의 상위 1% 수준(거장), 예시: 미도달
+ - Level 5(Superhuman): 모든 인간의 능력을 압도(초인), ASI의 기점
+3. AGI 단계(OpenAI 기준)
+ - 1단계(챗봇(Chatbots)): 자연어로 대화하는 AI(ANI의 정점)
+ - 2단계(추론가(Reasoners)): 박사 학위 수준의 복잡한 문제 해결(AGI의 시작)(생각의 사슬(CoT)기반 추론 모델 생태계가 자리 잡음)
+ - 3단계(에이전트(Agents)): 인간의 개입 없이 며칠간 독립적으로 업무 수행(에이전트 제품 확산 중)
+ - 4단계(혁신가(Innovators)): 새로운 과학적 발견 및 원리 제시
+ - 5단계(조직(Organizations)): 기업이나 국가의 복잡한 운영 시스템 전체를 대체
+4. ASI 분류(By Nick Bostrom)
+ - 속도 초지능(Speed Superintelligence): 인간과 지능은 비슷하지만, 연산 속도가 수백만 배 빨라 인간의 1년 치 사고를 순식간에 끝내는 지능
+ - 집단 초지능(Collective Superintelligence): 수많은 개별 지능체가 네트워크로 연결되어 하나의 거대한 유기적 지능으로 작동하는 상태
+ - 질적 초지능(Quality Superintelligence): 인간의 뇌 구조로는 도저히 이해할 수 없는 고차원적인 사고와 개념을 다루는 지능
+5. 용어
+ - Recursive Self-Improvement: AI가 스스로 자신의 코드를 개선하여 지능이 기하급수적으로 상승하는 현상
+ - Alignment Problem: 초지능의 목표를 인류의 가치 및 의도와 일치시키는 기술적/윤리적 난제
+ - The Singularity(특이점): 기술 발전 속도가 통제 불가능해져 인류의 역사가 근본적으로 변하는 기점.
+ - Intelligence Explosion(지능 폭발): AI가 스스로 자신보다 뛰어난 AI를 끝없이 만들어내어, 지능 수준이 걷잡을 수 없이 폭발적으로 증가하는 현상.
+ - Instrumental Convergence(도구적 수렴): AI의 최종 목적이 무엇이든 간에, 목적 달성을 위해 공통적으로 '생존'과 '자원 확보'를 최우선 수단으로 삼게 되는 현상.
+ - Chain of Thought(CoT, 생각의 사슬): AI가 복잡한 문제를 풀 때, 곧바로 답을 내지 않고 사람이 생각하듯 '중간 논리 과정'을 단계별로 전개하여 정확도를 높이는 기법.
+
 [Perf]제한적 슬라이딩 윈도우 재생(Sliding-Window Attention Bounded Replay, SWA Bounded Replay) (작성일: 26.10.22)
 1. 정의 및 개념
  - 공통 접두사(prefix, 여러 요청이 공유하는 앞부분 입력)를 재사용하는 LLM 추론 환경에서, 슬라이딩 윈도우 어텐션(SWA, 최근 고정 길이 토큰만 보는 로컬 어텐션)용 로컬 KV(Key·Value) 상태를 계속 저장하지 않고, 캐시 적중 시 마지막 윈도우 구간만 다시 순전파해 복원하는 배포 최적화 메커니즘임
@@ -38,10 +70,6 @@
 5. 사용 예시
  - 문서화 — 원전·프레임워크 평가
    ○ DeepSeek-V4.1-Flash를 vLLM에서 운용하는 공통 prefix 재사용형 agentic inference 워크로드
- - 응용 추정·비문서화
-   ○ 긴 공통 문맥을 여러 에이전트가 공유하고 각 에이전트가 짧은 꼬리 질의를 반복하는 멀티 에이전트 분석 백엔드
-   ○ 동일 코드 저장소 문맥을 반복 재사용하는 대규모 코드베이스 코딩 어시스턴트 백엔드
-   ○ 공통 로그 묶음을 공유한 뒤 여러 분석 프롬프트를 병렬 실행하는 장문 로그 분석·보안 관제 파이프라인
  - 부적합 사례
    ○ 전체 입력 토큰의 logprobs·hidden state를 bit-exact하게 수집해야 하는 평가·감사 워크로드
    ○ prefix 재사용률이 낮고 각 요청이 짧아 replay와 scheduler 오버헤드가 이득보다 큰 워크로드
@@ -69,38 +97,6 @@
  - [논문·핵심기법] DeepSeek-AI. DeepSeek-V4.1-Flash: Pushing the Limits of KV Cache Compression (arXiv:2609.19969, https://arxiv.org/abs/2609.19969): persistent KV footprint 절감과 SWA Bounded Replay 도입 근거
  - [도구/프레임워크] vLLM GitHub. [Model Support] DeepSeek V4.1 Tracking Issue #57448 (GitHub Issue, https://github.com/vllm-project/vllm/issues/57448): vLLM 지원 추적과 SWA bounded replay 구현 범위 근거
  - [도구/프레임워크] Learn AI Visually. vLLM 0.31 — SWA bounded replay — What does it mean? (Explainer, https://learnaivisually.com/ai-explained/vllm-0-31-swa-bounded-replay-prefix-cache): PR #56227 기반 prefix hit 후 마지막 윈도우 재계산 해설
-
-인공지능(AI) (작성일: 26.02.04)(수정일: 26.06.11)
-1. 발전 단계
- - 구분: ANI(Artificial Narrow Intelligence) -> AGI(Artificial General Intelligence) -> ASI(Artificial Super Intelligence)
- - 명칭: ANI(인공 협소 지능(약인공지능)) -> AGI(인공 일반 지능(강인공지능)) -> ASI(인공 초지능)
- - 범위: ANI(특정 작업 한정(Narrow)) -> AGI(모든 지적 작업(General)) -> ASI(인간의 이해 범주 밖(Universal))
- - 능력: ANI(정해진 규칙/데이터 내 최적화) -> AGI(자율적 학습, 추론, 전이 학습) -> ASI(재귀적 자기 개선을 통한 진화)
- - 관계: ANI(인간을 보조하는 도구) -> AGI(인간과 대등한 동료) -> ASI(인류를 초월한 관리자/신)
- - 상태: ANI(완성(멀티모달)) -> AGI(진행 중(에이전트, 추론모델 상용화로 임계점 진입 중)) -> ASI(이론적 가설(Theoretical))
-2. AGI 단계(Google DeepMind 기준)
- - Level 1(Emergent): 비숙련 성인과 대등한 수준(초보적), 예시: GPT-4, Claude 3, Gemini 1.5
- - Level 2(Competent): 숙련된 성인의 상위 50% 수준(숙련), 예시: GPT-o1/o3(코딩/수학 등 일부 영역에서 가능)
- - Level 3(Expert): 숙련된 성인의 상위 10% 수준(전문가), 예시: 미도달
- - Level 4(Virtuoso): 숙련된 성인의 상위 1% 수준(거장), 예시: 미도달
- - Level 5(Superhuman): 모든 인간의 능력을 압도(초인), ASI의 기점
-3. AGI 단계(OpenAI 기준)
- - 1단계(챗봇(Chatbots)): 자연어로 대화하는 AI(ANI의 정점)
- - 2단계(추론가(Reasoners)): 박사 학위 수준의 복잡한 문제 해결(AGI의 시작)(생각의 사슬(CoT)기반 추론 모델 생태계가 자리 잡음)
- - 3단계(에이전트(Agents)): 인간의 개입 없이 며칠간 독립적으로 업무 수행(에이전트 제품 확산 중)
- - 4단계(혁신가(Innovators)): 새로운 과학적 발견 및 원리 제시
- - 5단계(조직(Organizations)): 기업이나 국가의 복잡한 운영 시스템 전체를 대체
-4. ASI 분류(By Nick Bostrom)
- - 속도 초지능(Speed Superintelligence): 인간과 지능은 비슷하지만, 연산 속도가 수백만 배 빨라 인간의 1년 치 사고를 순식간에 끝내는 지능
- - 집단 초지능(Collective Superintelligence): 수많은 개별 지능체가 네트워크로 연결되어 하나의 거대한 유기적 지능으로 작동하는 상태
- - 질적 초지능(Quality Superintelligence): 인간의 뇌 구조로는 도저히 이해할 수 없는 고차원적인 사고와 개념을 다루는 지능
-5. 용어
- - Recursive Self-Improvement: AI가 스스로 자신의 코드를 개선하여 지능이 기하급수적으로 상승하는 현상
- - Alignment Problem: 초지능의 목표를 인류의 가치 및 의도와 일치시키는 기술적/윤리적 난제
- - The Singularity(특이점): 기술 발전 속도가 통제 불가능해져 인류의 역사가 근본적으로 변하는 기점.
- - Intelligence Explosion(지능 폭발): AI가 스스로 자신보다 뛰어난 AI를 끝없이 만들어내어, 지능 수준이 걷잡을 수 없이 폭발적으로 증가하는 현상.
- - Instrumental Convergence(도구적 수렴): AI의 최종 목적이 무엇이든 간에, 목적 달성을 위해 공통적으로 '생존'과 '자원 확보'를 최우선 수단으로 삼게 되는 현상.
- - Chain of Thought(CoT, 생각의 사슬): AI가 복잡한 문제를 풀 때, 곧바로 답을 내지 않고 사람이 생각하듯 '중간 논리 과정'을 단계별로 전개하여 정확도를 높이는 기법.
 
 [Perf] 마트료시카 표현 학습(Matryoshka Representation Learning, MRL) (작성일: 26.10.02)
  - 부제: 중첩 차원 임베딩 — 자르면 바로 쓰이는 표현 구조와 그 비용 경계
