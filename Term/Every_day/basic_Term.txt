@@ -121,3 +121,7 @@ DRIFT Search: 커뮤니티 수준 문맥에서 시작해 로컬 그래프 탐색
 SWA(Sliding-Window Attention): 최근 고정 길이 토큰 구간만 직접 참조하는 로컬 어텐션 방식
 Prefix Caching: 여러 요청이 공유하는 접두사 구간의 계산 결과를 재사용하는 추론 최적화 방식
 Replay: 저장하지 않은 상태를 필요한 범위만 다시 계산해 복원하는 절차
+워프 전문화(Warp Specialization): GPU 워프를 데이터 전송 전담과 텐서 연산 전담으로 나눠 비동기 중첩 실행하는 기법
+TMA(Tensor Memory Accelerator): Hopper에서 HBM과 SRAM 사이 텐서 전송을 스레드 개입 없이 비동기로 처리하는 하드웨어 유닛
+WGMMA(Warpgroup Matrix Multiply-Accumulate): Hopper에서 워프 그룹 단위로 텐서 코어 행렬곱을 수행하는 명령 계열
+mbarrier(비동기 트랜잭션 배리어): 비동기 전송과 연산 사이의 버퍼 준비 상태를 조정하는 Hopper 동기화 장치
