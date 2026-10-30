@@ -125,3 +125,7 @@ Replay: 저장하지 않은 상태를 필요한 범위만 다시 계산해 복�
 TMA(Tensor Memory Accelerator): Hopper에서 HBM과 SRAM 사이 텐서 전송을 스레드 개입 없이 비동기로 처리하는 하드웨어 유닛
 WGMMA(Warpgroup Matrix Multiply-Accumulate): Hopper에서 워프 그룹 단위로 텐서 코어 행렬곱을 수행하는 명령 계열
 mbarrier(비동기 트랜잭션 배리어): 비동기 전송과 연산 사이의 버퍼 준비 상태를 조정하는 Hopper 동기화 장치
+전문가 병렬(Expert Parallelism, EP): MoE 전문가들을 여러 GPU에 나눠 싣고 토큰을 해당 GPU로 보내 처리하는 병렬화 방식
+디스패치·컴바인(Dispatch / Combine): 토큰을 선택된 전문가 GPU로 보내고, 전문가 출력을 원래 GPU로 모아 합산하는 all-to-all 통신 쌍
+IBGDA(InfiniBand GPUDirect Async): GPU가 CPU를 거치지 않고 직접 RDMA 전송을 개시하는 기능
+SM(Streaming Multiprocessor): GPU 연산 코어 묶음 단위로, 통신 커널이 점유하면 그만큼 연산 자원이 줄어듦
