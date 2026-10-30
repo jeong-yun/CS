@@ -129,3 +129,8 @@ mbarrier(비동기 트랜잭션 배리어): 비동기 전송과 연산 사이의
 디스패치·컴바인(Dispatch / Combine): 토큰을 선택된 전문가 GPU로 보내고, 전문가 출력을 원래 GPU로 모아 합산하는 all-to-all 통신 쌍
 IBGDA(InfiniBand GPUDirect Async): GPU가 CPU를 거치지 않고 직접 RDMA 전송을 개시하는 기능
 SM(Streaming Multiprocessor): GPU 연산 코어 묶음 단위로, 통신 커널이 점유하면 그만큼 연산 자원이 줄어듦
+체인 오브 드래프트(Chain-of-Draft, CoD): CoT의 각 단계를 약 5단어 이하의 최소 초안으로 압축하도록 유도하는 프롬프팅 변형(Xu et al., arXiv:2502.18600)
+최소 초안(Minimum Draft): 추론 단계마다 핵심 수식·키워드만 남긴 짧은 중간 메모
+장황함(Verbosity): 추론에 불필요한 설명 문장까지 생성해 출력 토큰·지연이 늘어나는 현상
+충실성(Faithfulness): CoT 문장이 모델의 실제 판단 근거를 반영하는 정도
+퓨샷 예시(Few-shot Examples): 원하는 출력 형식을 보여주기 위해 프롬프트에 넣는 소수의 입출력 예시
