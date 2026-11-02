@@ -137,3 +137,8 @@ SM(Streaming Multiprocessor): GPU 연산 코어 묶음 단위로, 통신 커널�
 시퀀스 병렬화(Sequence Parallelism): 입력의 토큰 축을 여러 장치에 나눠 장문맥 계산을 분산하는 병렬화 방식
 정확 어텐션(Exact Attention): 근사·희소화 없이 표준 dense self-attention과 수학적으로 동일한 결과를 내는 계산 방식
 온라인 소프트맥스(Online Softmax): 블록 단위 부분 결과를 누적하면서 softmax 정규화 항을 점진적으로 갱신하는 계산 기법
+Draft Model(초안 모델): 타겟 모델보다 빠르게 다음 토큰 후보를 먼저 제안하는 소형 모델 또는 경량 head
+Self-Speculation(자기추측): 별도 draft 모델 없이 타겟 모델 내부 head·feature를 이용해 초안을 만드는 방식
+Acceptance Rate(채택률): draft가 제안한 토큰 중 타겟 검증을 통과해 실제 출력으로 확정되는 비율
+Rejection Sampling(수락/거절 샘플링): 초안 후보를 타겟 모델 분포와 맞도록 수학적으로 수락 또는 거절해 분포 보존을 달성하는 검증 규칙
+Typical Acceptance(전형성 기반 수락): 수락률을 높이기 위해 분포 보존을 완화할 수 있는 Medusa 계열 검증 방식

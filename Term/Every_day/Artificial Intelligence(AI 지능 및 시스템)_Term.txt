@@ -2812,85 +2812,126 @@ DPO는 보상 모델·강화학습 단계를 제거 - "A가 B보다 낫다"는 �
  - Let's Verify Step by Step (Lightman et al., OpenAI, 2023 - Process Reward Model, https://arxiv.org/abs/2305.20050)
  - Kumar et al. Training LMs to Self-Correct via RL(SCoRe)(DeepMind, arXiv:2409.12917, https://arxiv.org/abs/2409.12917)
 
-[Perf]추측적 디코딩(투기적 디코딩, Speculative Decoding) (작성일: 26.07.03)(수정일: 26.07.31, 09.04, 10.20)
+[Perf]추측적 디코딩(투기적 디코딩, Speculative Decoding) (작성일: 26.07.03)(수정일: 26.07.31, 09.04, 10.20, 11.02)
+ - 부제: 분포 보존형 LLM 추론 가속 — 별도 draft 모델·자기추측 head·트리 검증·EAGLE-3까지
 1. 정의 및 개념
- - 거대 언어 모델(Target Model)이 토큰을 하나씩 순차 생성(Autoregressive)하는 병목을 푸는 추론 가속 기술. 속도가 빠른 소형 초안 모델(Draft Model)이 앞으로 나올 여러 토큰을 먼저 예측(Speculation)하면, 크고 정확한 타겟 모델이 이를 단일 병렬 패스(single forward pass)로 한 번에 검증(Verification).
- - 엄격한 수락/거절(rejection sampling) 규칙으로 타겟 모델 단독 출력 분포와 수학적으로 동일한 결과(무손실)를 보장하면서 사용자 대기 시간을 줄임('투기적 샘플링(speculative sampling)').(기원: Leviathan et al. 2023, https://arxiv.org/abs/2211.17192)
- - 명칭 유래: 컴퓨터 구조론의 '투기적 실행(Speculative Execution)' 개념을 LLM 디코딩에 접목한 것으로, 2026년 현재 vLLM·TensorRT-LLM 등 주요 추론 엔진의 핵심 최적화 옵션으로 사용.
- - 비유: 손이 빠른 조수(Draft)가 초안을 쓰고, 책임 연구원(Target)이 한 번에 검토·승인.
+ - 거대 언어 모델(Target Model)의 토큰 단위 순차 생성 병목을 줄이는 추론 가속 기술임. 빠른 초안 생성기(Draft Generator)가 앞으로 나올 여러 토큰 또는 그에 준하는 내부 표현을 먼저 제안하고, 정확한 타겟 모델이 이를 단일 병렬 패스 또는 트리 검증으로 한 번에 확인함.
+ - Leviathan et al.(ICML 2023, speculative decoding)과 Chen et al.(DeepMind, 2023, speculative sampling)이 독립적으로 제안한 방식이 기원이며, 엄격한 수락/거절 규칙을 유지하는 변형에 한해 타겟 모델 단독 생성과 같은 확률 분포를 보존하는 무손실 가속 방식임.
+ - 단 typical acceptance 같은 완화된 검증 규칙을 쓰는 변형(§7-2)이나 타겟 본체를 함께 학습하는 구성은 분포 보존을 보장하지 않음.
+ - 핵심 경계: 바꾸는 것 ↔ 토큰 생성 절차의 검증 방식·초안 방식 / 그대로인 것 ↔ 엄격한 검증 규칙을 쓰는 경우의 타겟 모델 분포. 「시맨틱 라우팅」은 요청의 목적지 선택, 「KV 캐시 압축 및 축출」은 메모리 상주량 관리, 본 항목은 디코딩 절차 자체의 순전파 병목 완화라는 점에서 구분됨.
+ - 등장 배경
+   ① 문제: 자기회귀(autoregressive; 이전 토큰을 바탕으로 다음 토큰을 하나씩 생성하는 방식) 생성이 토큰마다 전체 모델 순전파를 요구해 지연시간이 길어짐.
+   ② 원인: LLM 추론이 자주 메모리 대역폭(memory bandwidth) 병목에 묶여, 한 토큰마다 거대한 가중치를 반복적으로 읽는 비용이 큼.
+   ③ 처방: 빠른 초안 생성기로 여러 토큰 후보를 미리 만들고, 타겟 모델이 이를 병렬 검증해 한 번의 가중치 읽기로 여러 토큰을 확정하는 방식 채택. 자기추측형은 별도 draft 모델 대신 타겟 내부 표현·보조 head를 활용하고, EAGLE-3는 여기에 direct token prediction·다층 feature 융합·training-time test를 결합함.
 2. 작동 원리
- ⓐ 초안 작성(Drafting): 가벼운 초안 모델이 다음 K개 토큰을 빠르게 생성.(초안 헤드가 토큰이 아니라 타겟 모델 내부 은닉 상태를 쓰는 계열은 §7 참조.)
- ⓑ 병렬 검증(Parallel Verification): 거대 타겟 모델이 제안된 K개 토큰을 한 번의 연산으로 검사하고 확률 분포에 맞춰 수락/거절. 첫 불일치 지점에서는 타겟이 직접 정답 토큰을 생성하고 이후를 다시 Draft에 넘김.(이 절차가 분포 보존의 근거.)
- ⓒ Draft 확보 방식(3계열): 
-    ① 별도 소형 모델(어휘·토크나이저 정합 필요) — 수십 배 작은 동일 계열 모델 사용(예: Llama-70B 타겟에 Llama-1B 초안).
-    ② 자기추측(self-speculative) — Medusa(다중 예측 헤드)·EAGLE 계열(feature 기반 draft head): 별도 모델·어휘 정합 불필요. 단 초안 헤드를 타겟 모델 출력으로 학습해야 하므로 플러그앤플레이는 아님. 세대별 차이는 §7 참조.
-    ③ n-gram·검색 기반(반복·입력 기반 태스크, 추가 VRAM 0).
- ⓓ 추측적 추측 해독(Speculative Speculative Decoding, SSD): 초안 모델이 검증 결과를 미리 예측해 여러 시나리오의 다음 초안을 타겟 검증과 병렬로 준비(speculation cache) → 드래프팅 지연을 검증 연산 뒤에 숨겨 사실상 제거. 최적화 spec decoding 대비 최대 2배, 표준 자기회귀 대비 최대 5배.<2026년 발표(arXiv 2603.03251, Kumar·Dao·May, ICLR 2026, 구현 "Saguaro", https://arxiv.org/abs/2603.03251).>
- ⓔ 초안 배치 방식(선형 vs 트리): 초안을 단일 시퀀스로 늘리는 선형 방식과, 여러 후보 경로를 트리로 배치해 트리 어텐션 마스크로 한 번에 검증하는 방식이 있음(트리 검증 도입: SpecInfer). 트리는 순전파 횟수를 줄이는 대신 회당 검증 토큰 수를 늘리는 맞교환 → §4의 배치 손익분기를 앞당김.
-3. 좋아진 점(장점/개선점)
- - 무손실 가속(Lossless Speedup): 가지치기·양자화와 달리 엄격한 수락/거절 규칙 덕분에 최종 출력 품질이 타겟 모델 단독 사용 시와 완전히 동일하게 유지.
- - 체감 속도 향상: 표준 자기회귀 대비 최대 ~5배(SSD 기준) wall-time 가속(표준 추측 해독 단독은 통상 2~3배). EAGLE-2는 원전 기준 3.05~4.26배로 EAGLE-1 대비 20~40% 개선(배치 1·다과제 조건). EAGLE-3의 보고 수치는 문헌·하드웨어·배치 조건에 따라 편차가 크므로, 인용 시 출처와 측정 조건을 함께 표기할 것.
- - 메모리 대역폭 병목 돌파: 토큰마다 전체 가중치를 VRAM에서 읽어야 하는 memory-bandwidth-bound 특성을 한 번의 읽기로 여러 토큰 처리로 완화(가속의 근본 원리).
- - 타겟 모델 무수정: 별도 소형 초안 모델 방식(§2-ⓒ①)은 큰 모델의 구조·가중치를 수정할 필요 없이 추론 엔진 옵션으로 적용 가능. (자기추측형 §2-ⓒ②는 초안 헤드 학습이 필요하므로 해당되지 않음.)
-4. 문제점(단점/한계)
- - 배치 크기(Batch Size) 한계: 배치가 매우 커지면 메모리 대역폭이 아닌 컴퓨팅 연산 자체에 병목(compute-bound)이 걸려, 검증 오버헤드 때문에 이득이 줄거나 역전. → 고동시성·처리량 위주 서버엔 부적합, 소배치·저지연에 최적.
- - 이중 모델 운용의 복잡성: 타겟 외에 초안 모델을 추가로 VRAM에 적재·동기화해야 해 메모리 사용량과 하드웨어 요구 사항이 증가. (단, Medusa·EAGLE처럼 별도 모델 없이 경량 예측 헤드/feature 예측으로 대체해 이 부담을 줄이는 변형도 있음.)
- - 수용률(Acceptance Rate) 의존: 초안 채택률이 낮으면 버려지는 토큰의 헛연산 때문에 이득이 사라지거나 역전될 수 있음. 임계치는 모델·태스크·K에 따라 달라 일률적 수치로 말할 수 없음. 별도 draft 모델을 쓸 경우 어휘·토크나이저 정합도 전제(자기추측형은 구조적으로 회피).
- - 튜닝 부담: K(추측 길이)·draft 체크포인트·양자화 조합을 워크로드별로 맞춰야 함.
- - 총 연산·전력 증가: 지연은 줄지만 초안 생성·검증으로 총 연산 횟수 자체는 늘어나 전력 소모가 증가하며, 하드웨어 사양이 충분하지 않은 환경에서는 역효과 가능.
+ ⓐ 초안 작성(Drafting): 초안 생성기가 다음 K개 토큰 또는 후보 트리를 먼저 제안함. 구현 축은 별도 소형 모델, 자기추측 head, n-gram/검색 기반으로 나뉨.
+ ⓑ 병렬 검증(Parallel Verification): 타겟 모델이 제안된 토큰들을 한 번의 연산으로 검사하고, 수락 가능한 접두(prefix)를 한꺼번에 확정함. 첫 불일치 지점 이후는 타겟이 직접 토큰을 내고 다음 초안 단계로 넘어감.
+ ⓒ 분포 보존(Rejection Sampling): 수락/거절 규칙이 타겟 분포와 정렬되도록 설계되어, 가속은 얻되 출력 분포는 보존함. 무손실의 핵심 근거가 이 절차임.
+   ○ 무손실은 수학적 보장이며, 실제 서빙에서는 배치 구성과 부동소수점 연산 순서 차이로 타겟 단독 생성과 미세한 차이가 생길 수 있음.
+   ○ 무손실은 수학적 보장이며, 실제 서빙에서는 배치 구성과 부동소수점 연산 순서 차이로 타겟 단독 생성과 미세한 차이가 생길 수 있음.
+ ⓓ 자기추측(Self-Speculation): 타겟 모델에 경량 head를 붙이거나 내부 feature를 활용해 별도 draft 모델 없이 초안을 제안함. Medusa는 다중 head 계열, EAGLE은 학습된 draft head 계열임.
+ ⓔ 트리 검증(Tree-based Verification): 초안을 선형 시퀀스가 아니라 여러 후보 경로의 트리로 구성하고, tree attention류 마스크로 한 번에 검증함. SpecInfer가 선행 도입했고 EAGLE-2/3는 이를 문맥 인식 동적 트리와 결합함.
+3. 좋아진 점
+ - 분포 보존형 가속: 양자화·가지치기와 달리 엄격한 검증 규칙을 쓰는 경우 타겟 분포 보존을 목표로 하며, 품질 저하를 전제로 하지 않는 지연시간 단축 축임.
+ - 체감 지연 감소: 소배치·저지연 워크로드에서 이득이 큼. 표준 speculative decoding은 원전 조건에서 통상 2~3배 수준 가속이 보고되며, EAGLE-2는 다과제·배치 1 조건에서 3.05~4.26배, EAGLE-3는 원전 벤치마크 기준 최대 약 6.5배 및 EAGLE-2 대비 약 1.4배 개선을 보고함. 또한 EAGLE-3 원전은 SGLang에서 배치 64 조건 처리량 약 1.38배 개선도 보고함.
+ - 메모리 대역폭 병목 완화: 한 번의 타겟 순전파로 여러 토큰을 검증해 토큰당 반복적인 가중치 읽기 비용을 줄임.
+ - 타겟 무수정 선택지 존재: 별도 소형 draft 모델 방식은 큰 모델의 구조·가중치 변경 없이 추론 엔진 옵션으로 적용 가능함. 반면 자기추측형·Medusa-2류 구성은 추가 학습 또는 타겟 본체 변경 가능성 존재.
+4. 문제점 및 한계
+ - 배치 손익 역전 가능성: 배치가 커질수록 memory-bound 이점이 줄고 검증 오버헤드가 커져 처리량 이득이 감소하거나 역전될 수 있음. 다만 EAGLE-3는 SGLang에서 배치 64 조건의 처리량 개선을 보고하므로, 역전 지점은 변형·구현·하드웨어에 따라 다름.
+ - 완화된 검증 규칙의 분포 이탈: typical acceptance 등 수락률을 높이려 검증을 완화한 구성은 무손실 보장을 포기함. 품질 보존이 요건이면 엄격한 rejection sampling 경로 필요.
+ - 추가 자원 요구: 별도 draft 모델 방식은 VRAM 점유와 모델 관리 복잡성이 증가함. 자기추측형은 추가 학습·내부 훅·서빙 통합 비용이 발생함.
+ - 수용률 의존: 초안 채택률(acceptance rate)이 낮으면 초안 연산이 헛일이 되어 속도 이득이 사라질 수 있음. 태스크·도메인·추측 길이 K·문맥 길이에 민감함.
+ - 트리형 구현 복잡성: 트리 검증은 순전파 횟수를 줄이는 대신 회당 검증 토큰 수, 마스크 관리, KV 배치 복잡성을 늘림.
+ - 총 연산량 증가 가능성: 지연시간은 줄어도 초안 생성과 검증이 추가되어 총 FLOPs·전력 소모가 증가할 수 있음.
+ - 긴 문맥·OOD 취약성: 특히 EAGLE-3 계열은 긴 문맥 또는 분포 밖 입력에서 drafter attention drift와 acceptance length collapse가 보고됨.
+ - 부적합 영역
+   ⓐ 엄격한 bit-exact 재현성이 필요한 평가·감사 파이프라인
+   ⓑ 초안 수용률이 낮은 불안정·고엔트로피 생성 작업
+   ⓒ 추가 학습·내부 훅 통합이 어려운 엄격한 운영 환경
 5. 사용 예시
- - 실시간 AI 음성 에이전트: 사람 반응 속도에 맞춘 초저지연(Ultra-low Latency) 음성 대화(소배치·저지연이라 추측 해독에 최적).
- - AI 코딩 어시스턴트(Copilot류): 코드는 구조·문법이 정형적(괄호 닫기·들여쓰기·반복문 패턴 등)이라 초안 채택률이 일상 대화보다 높아 가속 효율이 커짐.
-6. 관계(기존 개념과 비교)
- - Speculative RAG: 같은 draft-verify 발상이나 토큰 레벨·분포 보존(무손실) vs 답변 레벨·반영 검증(무손실 아님). 
- - CaTS/TTSL(샘플 수·연산 예산)과 직교 → 결합 시 곱셈 효과. 양자화·BitNet b1.58(정밀도 손실 감수)과 대비되는 무손실 축. 
- - KV 캐시 압축(캐시 크기)과는 다른 병목 축(토큰당 순전파 횟수).
- - 사고 트리(ToT) — 유사: 후보를 트리로 전개하고 점수로 가지치기한 뒤 유망 경로만 남기는 확장/평가 뼈대가 동형. 차이: 탐색 대상과 손실성 — 의미 단위의 추론 경로를 탐색해 출력 자체를 바꿈(무손실 아님) ↔ 토큰 후보를 배치해 속도만 얻고 출력 분포는 보존. 경계: 이중 해리 성립→ 별도+상호참조.
- - 깊이 혼합(MoD) — 유사: 스코어러가 상위 k개만 골라 자원을 배분하는 top-k 착상이 동형. 차이: 개입 시점 — 학습 시점에 확정되는 아키텍처(라우터가 가중치의 일부) ↔ 추론 시점 절차(가중치 불변). 경계: 직교하며 결합 가능.
-7. 변형 상세
-   1) EAGLE-1(feature 수준 자기회귀 초안)
-     - 개념: 초안을 토큰이 아니라 feature(최상위 직전 레이어 은닉 상태) 수준에서 자기회귀 생성하는 자기추측형 초안 헤드(Li et al., ICML 2024, arXiv:2401.15077).
-     - 작동원리: 단일 디코더 레이어 규모의 경량 헤드가 타겟 모델의 feature 시퀀스를 이어 예측. feature만으로는 다음 값이 확정되지 않는 불확실성을 해소하기 위해, 다음 시점의 샘플링된 토큰을 함께 입력해 조건을 확정.
-     - 장점: 별도 초안 모델·어휘 정합이 불필요하고, 토큰 수준 예측보다 초안 정확도가 높음.
-     - 단점(고유): 초안 헤드를 타겟 모델의 출력으로 학습해야 하므로 플러그앤플레이가 아니며, 타겟 교체 시 재학습 필요. 초안 트리가 정적이라 문맥과 무관하게 같은 모양을 씀.
-     - 예시: 자기추측형 초안의 기준선.
-   2) EAGLE-2(문맥 인식 동적 초안 트리)
-     - 개념: EAGLE-1의 feature 수준 초안 생성기를 그대로 두고, 초안 후보 트리의 모양을 문맥에 따라 매 스텝 다시 짜는 변형(Li et al., EMNLP 2024, arXiv:2406.16858).
-     - 작동원리
-       ① 문제 진단: 정적 트리는 수용률이 트리 내 위치에만 의존한다고 암묵 가정. 실제로는 수용률이 문맥에 따라 크게 변동 — 쉬운 구간에서는 깊게, 어려운 구간에서는 넓게 가야 유리.
-       ② 검증 가능한 핵심 가설: 초안 모델의 신뢰도 점수가 수용률의 잘 보정된 근사라는 것. 원전은 둘의 상관을 실증 근거로 제시하며, 이 가설이 깨지면 동적 트리의 이득도 함께 무너짐(§단점).
-       ③ 확장(Expand) 단계: 초안 단계마다 경로상 신뢰도의 곱(= 그 경로가 통째로 수락될 확률의 추정)이 높은 상위 노드만 골라 확장 → 유망하지 않은 가지에 초안 연산을 쓰지 않음.
-       ④ 재순위(Rerank) 단계: 트리 완성 후 전체 노드를 값 기준으로 재정렬해 상위 m개만 검증에 투입. 자식 노드의 값은 부모 이하이므로 상위 m개를 고르면 부모가 자동 포함되어 트리 구조가 보존됨.
-       ⑤ 검증: 이후는 부모 §2-ⓑ의 수락/거절 절차를 그대로 사용 — 무손실은 EAGLE-2 고유 기여가 아니라 부모에서 상속.
-     - 장점
-       ○ 동일 초안 예산에서 기대 채택 길이 증가: 같은 수의 초안 토큰을 유망 경로에 몰아주므로 헛연산 감소.
-       ○ 정량 결과: 보고된 가속은 3.05~4.26배이며 EAGLE-1 대비 20~40% 개선 — Vicuna·LLaMA2-Chat·LLaMA3-Instruct 계열, MT-bench·HumanEval·GSM8K 등 다과제, 배치 1 조건.
-       ○ 초안 생성기 재사용: EAGLE-1의 학습된 헤드를 그대로 쓰고 트리 구성 로직만 교체 → 추가 학습 없이 적용 가능.
-     - 단점(고유)
-       ○ 맞교환의 방향(차원 분리 주의): 트리는 순전파 횟수를 줄이는 대신 회당 검증 토큰 수(연산량) 를 늘림. 따라서 부모 §4의 배치 손익분기가 선형 초안보다 더 이른 지점에서 발생 — 고동시성 서버에서 트리형은 먼저 손해로 전환.
-       ○ 보정 가설의 취약성: 초안 헤드가 학습 분포와 다른 입력에서 과신하면 신뢰도–수용률 상관이 무너져 동적 트리가 오히려 나쁜 경로에 예산을 배분. 도메인 이동 시 재검증 필요.
-       ○ 가변 트리와 서빙 스택의 마찰: 트리 모양이 요청마다 달라져 어텐션 마스크·KV 배치가 가변 → 커널 구현이 복잡하고 연속 배칭(continuous batching)의 정적 계획과 상충.
-       ○ 초안 헤드 학습 의존 상속: EAGLE-1과 동일하게 타겟별 학습이 전제.
-     - 예시
-       ○ (문서화) 원전의 다모델·다과제 벤치마크(요약·QA·코드·수학).
-       ○ (문서화) 주류 서빙 스택(vLLM·SGLang)의 EAGLE 계열 지원 — 본 항목은 채택 간극이 아니라 실제 채택 사례.
-   3) EAGLE-3(다층 feature 융합 + training-time test)
-     - 개념: EAGLE-1/2가 의존하던 feature 예측 제약을 버리고, 타겟 모델의 저·중·고 여러 레이어 은닉 상태를 융합해 초안을 만드는 변형(arXiv:2503.01840).
-     - 작동원리: feature 예측 손실을 제거해 초안 헤드가 표현을 자유롭게 학습하도록 하고, 학습 중 다단계 생성을 모사하는 절차(training-time test)로 실제 추론 조건과의 괴리를 줄임. EAGLE-2의 동적 트리는 그대로 승계.
-     - 장점: 학습 데이터를 늘릴수록 초안 정확도가 함께 오르는 스케일링 경로를 확보.
-     - 단점(고유): 다층 feature 접근이 필요해 타겟 모델 내부 훅 구현이 요구되고, 초안 헤드 학습 비용이 이전 세대보다 큼.
-     - 예시: (문서화) 원전의 다과제 벤치마크 및 주류 서빙 스택(vLLM·SGLang)의 EAGLE-3 지원.
+ - (문서화 — 원전) 표준 speculative decoding — 번역·요약 등 일반 텍스트 생성에서 별도 draft 모델로 지연시간 단축(Leviathan et al., ICML 2023).
+ - (문서화 — 원전) speculative sampling — 수정 rejection sampling으로 타겟 분포 보존을 목표로 하는 독립 동시 제안(Chen et al., 2023).
+ - (문서화 — 원전) EAGLE-2/EAGLE-3 — 대화·코드·수학 벤치마크에서 자기추측형 draft + 동적 트리로 가속(EAGLE-2: MT-Bench·HumanEval·GSM8K, EAGLE-3: 원전 보고 조건의 모델별 벤치마크와 SGLang batch 64 처리량 평가).
+ - (문서화) vLLM speculative decoding 옵션 — 저지연 추론 엔진의 speculative decoding 운영 옵션 사례(공식 문서).
+ - (문서화) SafeAILab EAGLE 구현체 — EAGLE-1/2/3 학습·추론 파이프라인 공개(GitHub README).
+ - (응용 추정(비문서화)) 코딩 어시스턴트·에이전트형 코드 생성 — 구문 패턴이 비교적 정형적이라 초안 채택률이 높게 나올 가능성 있음. 단 실제 이득은 모델·프롬프트·문맥 길이에 따라 재측정 필요.
+ - (부적합 사례) 무손실 분포 보존이 계약상 필수인 환경에서 typical acceptance만 사용하는 구성 — 엄격한 rejection sampling 경로 검증 필요.
+6. 관계 (기존 개념 비교)
+ - Speculative RAG: 유사: 소형 단계와 대형 검증 단계를 조합해 비용·지연을 줄이려는 발상 공유 / 차이: 개입 단위 — 토큰 수준 분포 보존 검증 ↔ 답변·검색 결과 수준 반영 검증 / 경계: 직교하며 결합 가능.
+ - Medusa: 유사: 별도 소형 draft 모델 없이 타겟 모델에 경량 초안 head를 붙이는 자기추측 계열 / 차이: 초안 생성·검증 축 — 다중 decoding head와 typical acceptance ↔ EAGLE 계열의 학습된 draft head·동적 트리·EAGLE-3의 direct token prediction / 경계: 같은 부모 아래의 형제 변형이지만, Medusa의 완화 검증 구성은 엄밀한 분포 보존과 구분 필요.
+ - SpecInfer: 유사: 초안 후보를 트리로 배치하고 병렬 검증하는 구조 공유 / 차이: 초점 축 — 트리 검증 프레임워크 ↔ 자기추측 초안 생성기와 학습 절차 / 경계: 직교에 가까우며 실구현에서는 결합 관계.
+ - 다중 토큰 예측(MTP): 유사: 여러 토큰을 미리 제안하고 본체가 검증·채택하는 절차가 같으며, MTP 헤드를 초안기로 쓰면 절차상 구분이 흐려짐 / 차이: 개입 시점 — 학습된 가중치를 그대로 두고 추론 절차만 바꿈 ↔ 사전학습 손실함수를 바꿔 가중치 자체를 다르게 학습 / 경계: 이중 해리 성립(MTP는 추론 때 모듈을 버려도 학습 이득이 남고, 추측적 디코딩은 MTP 없는 모델에도 적용 가능). 직교하며 결합 시 자체 초안 구성.
+ - KV 캐시 압축 및 축출: 유사: LLM 추론 병목을 줄이는 성능 최적화 / 차이: 병목 축 — 메모리 상주량·컨텍스트 유지 비용 ↔ 토큰당 순전파 횟수·메모리 대역폭 / 경계: 별도 항목이며 함께 적용 가능.
+ - 시맨틱 라우팅: 유사: 소형·대형 모델의 조합으로 비용 효율을 높인다는 운영상 공통점 / 차이: 개입 시점 — 요청 전 모델 선택 ↔ 생성 중 토큰 검증 / 경계: 별도 계층이며 파이프라인에서 병용 가능.
+ - 토크나이저 프리 바이트 수준 LM(BLT): 유사: 추론 가속과 생성 단위 설계가 맞물림 / 차이: 개입 층위 — 디코딩 절차 ↔ 입력 표현·아키텍처 / 경계: 별도 draft 모델 방식이 요구하는 어휘 정합 전제가 토크나이저 부재로 무효화되므로 자기추측형으로만 결합 여지.
+ - 사고 트리(ToT): 유사: 후보를 트리로 전개하고 유망 경로를 선별하는 구조적 닮음 / 차이: 대상 단위 — 의미 단위 추론 경로 탐색 ↔ 토큰 후보 배치 검증 / 경계: 이중 해리 성립, 별도+상호참조.
+7. 변형·확장 상세
+   1) 표준 추측적 샘플링(Standard Speculative Decoding / Speculative Sampling)
+     - 개념: 별도 소형 draft 모델이 여러 토큰을 먼저 제안하고, 타겟 모델이 수락/거절 규칙으로 병렬 검증하는 원형(Leviathan et al., arXiv:2211.17192 / Chen et al., arXiv:2302.01318, 2023).
+     - 작동원리:
+       ⓐ draft 모델이 다음 K개 토큰 제안
+       ⓑ 타겟 모델이 한 번에 검증 후 접두 길이만큼 확정
+     - 장점: 타겟 모델 무수정·개념 단순·분포 보존 근거 명확함.
+     - 단점(고유): 별도 draft 모델 적재 필요·어휘/토크나이저 정합 필요·자기추측형보다 운영 복잡성 큼.
+     - 예시: LLM 추론 엔진의 기본 speculative decoding 옵션.
+   2) Medusa(다중 decoding head 자기추측)
+     - 개념: 타겟 모델 위에 여러 개의 decoding head를 붙여 다음 여러 위치의 토큰 후보를 직접 예측하는 자기추측형 변형(Cai et al., arXiv:2401.10774, 2024).
+     - 작동원리:
+       ⓐ 여러 head가 미래 위치 토큰 후보 제안
+       ⓑ 타겟 모델 본체가 이를 검증하고 수락 가능한 부분 확정
+     - 장점: 별도 draft 모델이 불필요하고 배포 구성이 단순해질 수 있음.
+     - 단점(고유): 타겟별 추가 학습 필요, head 설계와 검증 길이 튜닝 부담. 원전이 제안한 typical acceptance는 수락률을 높이는 대신 분포 보존을 보장하지 않으며, 타겟 본체를 함께 학습하는 Medusa-2 구성은 타겟 모델 자체를 바꿈.
+     - 예시: self-speculative decoding의 대표 분기.
+   3) EAGLE-1(feature 수준 자기회귀 초안)
+     - 개념: 토큰이 아니라 타겟 모델의 최상위 직전 레이어 feature를 자기회귀적으로 예측하는 경량 draft head 계열(Li et al., ICML 2024, arXiv:2401.15077).
+     - 작동원리:
+       ⓐ draft head가 feature 시퀀스를 이어 예측
+       ⓑ feature 불확실성 보정을 위해 다음 시점 토큰 정보를 함께 조건으로 사용
+     - 장점: 별도 draft 모델·어휘 정합 불필요, 초기 자기추측형 기준선 역할.
+     - 단점(고유): 타겟별 재학습 필요·정적 초안 구조·최상위 feature 의존성 한계 존재.
+     - 예시: EAGLE 계열의 출발점.
+   4) EAGLE-2(문맥 인식 동적 초안 트리)
+     - 개념: EAGLE-1의 draft 생성기를 유지하면서, 초안 후보 트리의 모양을 문맥별로 다시 짜는 변형(Li et al., EMNLP 2024, arXiv:2406.16858).
+     - 작동원리:
+       ⓐ 초안 점수를 수용률 근사로 사용해 유망 경로 중심으로 확장
+       ⓑ 트리 완성 후 재순위로 상위 노드만 검증에 투입
+     - 장점: 동일 초안 예산에서 기대 채택 길이 증가·원전 기준 3.05~4.26배 가속, EAGLE-1 대비 20~40% 개선(배치 1·다과제 조건).
+     - 단점(고유): 신뢰도-수용률 보정이 무너지면 성능 하락·가변 트리로 서빙 스택 통합 복잡성 증가.
+     - 예시: 동적 draft tree 기반 자기추측형.
+   5) EAGLE-3(다층 feature 융합 + training-time test)
+     - 개념: EAGLE-1/2의 feature prediction 제약을 버리고 direct token prediction으로 전환하면서, 타겟 모델의 저·중·고 레이어 은닉 상태를 융합하고 학습 중 실제 추론 오류를 모사하는 training-time test를 도입한 변형(Li et al., NeurIPS 2025, arXiv:2503.01840).
+     - 작동원리:
+       ⓐ feature prediction constraint 제거: draft head가 은닉 상태 회귀보다 실제 토큰 예측 목표에 직접 맞도록 학습
+       ⓑ multi-layer feature fusion: top-layer만이 아니라 low/mid/high semantic feature를 함께 사용해 다음 토큰 예측 정보를 보강
+       ⓒ training-time test: 학습 중 초안 오류와 다단계 생성 상황을 시뮬레이션해 추론 시 분포 괴리를 줄임
+       ⓓ 동적 트리 승계: 검증 단계는 EAGLE-2의 문맥 인식 동적 트리 계열을 이어받음
+     - 장점: 학습 데이터 확장에 따라 draft 정확도 향상 경로를 확보하고, 원전 벤치마크 기준 최대 약 6.5배 가속, EAGLE-2 대비 약 1.4배 개선, SGLang batch 64 조건 처리량 약 1.38배 개선을 보고함.
+     - 단점(고유): 다층 feature 접근과 내부 훅 구현 필요·초기 학습 비용 증가·긴 문맥/OOD에서 attention drift와 acceptance length 저하 가능성 존재.
+     - 예시 — 출처 성격별로 다름
+       ● (문서화 — 원전) SafeAILab EAGLE 저장소의 EAGLE-3 학습·추론 파이프라인
+       ● (문서화) ROCm ATOM 문서의 EAGLE 3 / EAGLE 3.1 speculative decoding 운영 설명
+       ● (문서화) vLLM·SGLang 문서의 speculative decoding 서빙 옵션
+   6) Speculative Speculative Decoding(SSD)
+     - 개념: 초안 모델이 검증 결과까지 미리 예측해 다음 초안을 선계산하고, 드래프팅 지연을 타겟 검증 뒤로 숨기는 최적화(Kumar et al., ICLR 2026, arXiv:2603.03251).
+     - 작동원리:
+       ⓐ 여러 검증 시나리오의 후속 초안을 speculation cache로 준비
+       ⓑ 실제 검증 결과가 나오면 맞는 시나리오를 즉시 이어붙임
+     - 장점: draft 단계 지연을 겹쳐 숨겨 wall-time 단축폭을 키울 수 있음.
+     - 단점(고유): 시나리오 관리 복잡성·캐시 오버헤드·구현 난도가 높음.
+     - 예시: Saguaro 구현 보고.
 8. 참고 문헌
- - [논문·핵심기법] Leviathan et al. Fast Inference from Transformers via Speculative Decoding(arXiv:2211.17192, ICML 2023, https://arxiv.org/abs/2211.17192): 무손실 원전·2~3배
- - [논문·핵심기법] Li et al. EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test (arXiv:2503.01840, https://arxiv.org/abs/2503.01840): §7-3 근거 — 다층 feature 융합·training-time test·EAGLE-2 동적 트리 승계
- - [논문·핵심기법] Speculative Speculative Decoding (SSD / Saguaro) (arXiv:2603.03251, ICLR 2026, https://arxiv.org/abs/2603.03251): 드래프팅 지연 은닉·최대 5배
- - [논문·한계] Batch Speculative Decoding Done Right (arXiv:2510.22876,  https://arxiv.org/pdf/2510.22876): 배치 환경 손익
- - [도구/프레임워크] vLLM Speculative Decoding (--num-speculative-tokens, --speculative-disable-by-batch-size)(https://docs.vllm.ai/en/v0.7.3/features/spec_decode.html)
- - [논문·핵심기법] Li et al. EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty (ICML 2024, arXiv:2401.15077, https://arxiv.org/abs/2401.15077): §7-1 근거 — feature 수준 자기회귀 초안·다음 토큰 동시 입력
- - [논문·핵심기법] Li et al. EAGLE-2: Faster Inference of Language Models with Dynamic Draft Trees (EMNLP 2024, arXiv:2406.16858, https://arxiv.org/abs/2406.16858): §7-2 원전 — 수용률의 문맥 의존성·신뢰도 기반 확장/재순위·3.05~4.26배(EAGLE-1 대비 20~40%)
- - [논문·핵심기법] Miao et al. SpecInfer: Accelerating LLM Serving with Tree-based Speculative Inference and Verification (ASPLOS 2024, arXiv:2305.09781, https://arxiv.org/abs/2305.09781): §2-ⓔ·§7-2 계보 근거 — 토큰 트리 검증의 선행 도입(트리 자체는 EAGLE 기여가 아님)
- - [논문·핵심기법] Cai et al. Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads (ICML 2024, arXiv:2401.10774, https://arxiv.org/abs/2401.10774): §2-ⓒ② 근거 — 다중 헤드 자기추측형 초안
- - [블로그·해설] NVIDIA. How Speculative Decoding Accelerates LLMs (URL 원문 미기재): §3 근거 — 메모리 대역폭 한계 극복 원리 시각 해설
+ - [논문·핵심기법] Leviathan, Y., et al. Fast Inference from Transformers via Speculative Decoding (ICML 2023, arXiv:2211.17192, https://arxiv.org/abs/2211.17192): §1·§2·§7-1 근거 — speculative decoding 원전·분포 보존 규칙·표준 계열의 통상 2~3배 가속 배경.
+ - [논문·핵심기법] Chen, C., et al. (DeepMind). Accelerating Large Language Model Decoding with Speculative Sampling (arXiv:2302.01318, https://arxiv.org/abs/2302.01318): §1·§5·§7-1 근거 — speculative sampling 명칭과 수정 rejection sampling의 독립 동시 제안.
+ - [논문·핵심기법] Cai, T., et al. Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads (ICML 2024, arXiv:2401.10774, https://arxiv.org/abs/2401.10774): §2·§4·§6·§7-2 근거 — 다중 head 자기추측 계열·typical acceptance·Medusa-2의 타겟 본체 학습 구성.
+ - [논문·핵심기법] Li, Y., et al. EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty (ICML 2024, arXiv:2401.15077, https://arxiv.org/abs/2401.15077): §7-3 근거 — feature 수준 자기회귀 초안·다음 토큰 조건 결합.
+ - [논문·핵심기법] Li, Y., et al. EAGLE-2: Faster Inference of Language Models with Dynamic Draft Trees (EMNLP 2024, arXiv:2406.16858, https://arxiv.org/abs/2406.16858): §7-4 근거 — 문맥 인식 동적 트리·3.05~4.26배·EAGLE-1 대비 20~40% 개선(배치 1·다과제).
+ - [논문·핵심기법] Li, Y., et al. EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test (NeurIPS 2025, arXiv:2503.01840, https://arxiv.org/abs/2503.01840): §1·§3·§4·§7-5 원전 — direct token prediction·multi-layer feature fusion·training-time test·원전 벤치마크 최대 약 6.5배·EAGLE-2 대비 약 1.4배·SGLang batch 64 처리량 약 1.38배 보고.
+ - [논문·핵심기법] Miao, X., et al. SpecInfer: Accelerating LLM Serving with Tree-based Speculative Inference and Verification (ASPLOS 2024, arXiv:2305.09781, https://arxiv.org/abs/2305.09781): §2-ⓔ·§6·§7-4 근거 — 트리 기반 speculative verification의 선행 도입.
+ - [논문·핵심기법] Kumar, A., Dao, T., May, A. Speculative Speculative Decoding (ICLR 2026, arXiv:2603.03251, https://arxiv.org/abs/2603.03251): §2·§3·§7-6 근거 — speculation cache·표준 speculative decoding 대비 추가 wall-time 최적화.
+ - [도구/프레임워크] SafeAILab. EAGLE GitHub Repository (공식 저장소, https://github.com/SafeAILab/EAGLE): §5·§7-5 근거 — EAGLE-1/2/3 구현·README의 EAGLE-3 기여 요약.
+ - [도구/프레임워크] vLLM. Speculative Decoding Documentation (공식 문서, https://docs.vllm.ai/en/latest/features/spec_decode.html): §5·§7-5 근거 — 추론 엔진의 speculative decoding 적용 방식·운영 옵션.
+ - [도구/프레임워크] SGLang. Speculative Decoding Documentation (공식 문서, https://docs.sglang.ai/advanced_features/speculative_decoding.html): §7-5 근거 — SGLang의 speculative decoding 서빙 옵션.
+ - [도구/프레임워크] AMD ROCm Team. EAGLE 3 / EAGLE 3.1 speculative decoding (공식 문서, https://rocm.docs.amd.com/projects/atom/en/latest/eagle3_speculative_decoding.html): §4·§7-5 근거 — 긴 문맥/OOD에서 attention drift·acceptance length collapse 및 후속 완화 방향 문서화.
 
 [Perf]선형 어텐션 기반 선형 트랜스포머(Linear Attention–based Linear Transformers) (작성일: 26.07.02)
 1. 정의 및 개념
