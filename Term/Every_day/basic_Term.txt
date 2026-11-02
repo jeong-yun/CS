@@ -134,3 +134,6 @@ SM(Streaming Multiprocessor): GPU 연산 코어 묶음 단위로, 통신 커널�
 장황함(Verbosity): 추론에 불필요한 설명 문장까지 생성해 출력 토큰·지연이 늘어나는 현상
 충실성(Faithfulness): CoT 문장이 모델의 실제 판단 근거를 반영하는 정도
 퓨샷 예시(Few-shot Examples): 원하는 출력 형식을 보여주기 위해 프롬프트에 넣는 소수의 입출력 예시
+시퀀스 병렬화(Sequence Parallelism): 입력의 토큰 축을 여러 장치에 나눠 장문맥 계산을 분산하는 병렬화 방식
+정확 어텐션(Exact Attention): 근사·희소화 없이 표준 dense self-attention과 수학적으로 동일한 결과를 내는 계산 방식
+온라인 소프트맥스(Online Softmax): 블록 단위 부분 결과를 누적하면서 softmax 정규화 항을 점진적으로 갱신하는 계산 기법

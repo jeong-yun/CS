@@ -1,3 +1,75 @@
+[Perf]링 어텐션(Ring Attention) (작성일: 26.11.02)
+ - 부제: 표준 밀집 어텐션을 유지한 채 시퀀스 차원을 여러 장치에 분산하는 링 기반 시퀀스 병렬화
+1. 정의 및 개념
+ - 정의: Hao Liu 등(2023, ICLR 2024)이 제안한 장문맥용 분산 어텐션 계산 기법임. 긴 시퀀스를 장치별 블록으로 나누고, K·V 블록을 링(ring) 토폴로지로 순환시키며 blockwise exact attention을 계산함.
+ - 핵심 경계: 바꾸는 것 ↔ 어텐션의 배치·통신 방식. 그대로인 것 ↔ 표준 밀집 self-attention의 수학적 결과와 O(N^2) 연산 차수. 「MLA」처럼 KV 자체를 압축하는 기법도 아니고, 「NSA」처럼 참조 토큰을 희소화하는 아키텍처도 아님.
+ - 등장 배경
+   ① 문제: 표준 트랜스포머의 장문맥 학습·prefill에서 시퀀스 길이 증가에 따라 활성화·KV 관련 메모리와 어텐션 계산량이 급증함.
+   ② 원인: 한 장치가 전체 시퀀스를 통째로 들고 dense attention을 계산하는 전제가 길이 확장의 병목으로 작용함.
+   ③ 처방: 시퀀스 자체를 장치 간 분할하고, blockwise attention 계산 동안 K·V 블록 통신을 순차 순환·중첩해 각 장치의 메모리 부담을 낮추는 방식 채택함.
+2. 작동 원리
+ ⓐ 시퀀스 분할(Sequence Partitioning): 입력 토큰 축을 장치 수만큼 분할하고, 각 장치가 자신의 Q 블록과 로컬 K·V 블록을 보유함.
+ ⓑ 링 순환(Ring Communication): 각 장치가 현재 보유한 K·V 블록으로 로컬 blockwise attention을 계산한 뒤, 다음 장치로 K·V를 전달하고 이전 장치의 K·V를 수신함.
+ ⓒ 온라인 정규화(Online Softmax): 블록별 부분 결과를 누적하면서 softmax 정규화 항을 온라인으로 갱신해 단일 장치 dense attention과 수학적으로 동일한 출력을 복원함.
+ ⓓ 통신-연산 중첩(Communication-Computation Overlap): blockwise 연산 시간 동안 K·V 전송을 겹쳐 통신 노출 시간을 줄이는 구조임. 효과는 블록 크기·인터커넥트 대역폭·토폴로지 조건에 좌우됨.
+3. 좋아진 점
+ - 문맥 길이 확장: 장치 수에 비례한 시퀀스 확장 지원 (측정 조건: 원전 Figure 1, TPUv4-512·장치당 32GB 메모리 기준에서 기존 비교군 대비 최대 512배 더 긴 시퀀스 학습 가능 보고).
+ - 장치별 메모리 부담 완화: 전체 시퀀스를 단일 장치에 적재하지 않아 장치당 활성화·중간 상태 메모리 압력을 낮춤 (측정 조건: 원전의 blockwise transformer 분산 설정 기준).
+ - 정확 어텐션 유지: 희소화·근사화 없이 exact dense attention 결과 유지로, 알고리즘 변경에 따른 품질 저하 위험을 줄임.
+ - 초장문 학습 가능성 확대: 비디오+언어 같은 백만 토큰급 멀티모달 학습으로 확장 사례 확인됨 (측정 조건: LWM의 1M-token 학습 설정 기준).
+4. 문제점 및 한계
+ - 연산량 자체 미감소: 메모리를 분산해도 dense attention의 총 FLOPs 차수 O(N^2)는 유지됨. 「선형 어텐션 기반 선형 트랜스포머」와 달리 복잡도 축 자체를 바꾸지 않음.
+ - 통신 의존성: 효과가 고속 인터커넥트와 충분한 블록 연산량에 의존함. PCIe 중심 환경이나 인터노드 대역폭이 낮은 환경에서는 통신 병목이 두드러질 수 있음.
+ - decode 단계 비우호성: 생성(decode) 단계는 토큰당 계산량이 작아 prefill보다 overlap 이점이 약함. 따라서 긴 문맥 추론 전체에 동일한 효율을 기대하기 어려움.
+ - 부하 불균형: causal mask 환경에서는 장치별 유효 연산량이 균등하지 않아 일부 장치가 덜 일하거나 더 기다리는 현상 발생 가능함. 후속 변형은 이를 완화하는 방향임 → §7-1, §7-2.
+ - 구현 복잡성: 텐서 병렬·파이프라인 병렬·FSDP·체크포인팅 등과 함께 사용할 때 통신 스케줄 조정이 복잡해짐.
+ - 부적합 영역
+   ⓐ 짧은 시퀀스 중심 워크로드
+   ⓑ 인터커넥트가 약한 멀티노드 환경의 저지연 decode 중심 서빙
+   ⓒ O(N^2) FLOPs 자체 절감이 더 중요한 환경
+5. 사용 예시
+ - (문서화 — 원전) Ring Attention with Blockwise Transformers for Near-Infinite Context — 초장문 self-attention 학습용 분산 기법으로 제안됨.
+ - (문서화) World Model on Million-Length Video and Language with RingAttention — LWM이 비디오+언어 1M-token 학습에 적용함.
+ - (문서화) USP: A Unified Sequence Parallelism Approach for Long Context Generative AI — Ring Attention을 Ulysses와 함께 대표 시퀀스 병렬 축으로 비교·통합함.
+ - (응용 추정(비문서화)) 초장문 코드·문서 사전학습, 대규모 멀티모달 prefill, 수백만 토큰 회상 실험용 학습 인프라에 적합 가능성 있음.
+ - (부적합 사례) 토큰 단위 응답 지연이 민감한 decode 중심 온라인 서빙 — 통신 지연 노출 가능성 큼.
+6. 관계 (기존 개념 비교)
+ - 다중 헤드 잠재 어텐션(MLA): 유사: 둘 다 장문맥에서 메모리 병목 완화를 겨냥함 / 차이: 개입 축 — KV 표현 자체의 저랭크 압축 ↔ 시퀀스 차원의 장치 간 분산 / 경계: 이중 해리 성립으로 별도 항목이며 병용 가능.
+ - 네이티브 희소 어텐션(NSA): 유사: 초장문 문맥에서 어텐션 비용 문제 대응 / 차이: 줄이는 대상 — 참조 토큰 수와 연산량 ↔ 장치당 메모리 부담과 통신 스케줄 / 경계: 희소화 아키텍처와 분산 병렬화의 직교 관계.
+ - 선형 어텐션 기반 선형 트랜스포머: 유사: 긴 시퀀스 확장성 확보 목적 공유 / 차이: 수학적 메커니즘 — O(N) 계열 재구성 ↔ exact O(N^2) attention의 분산 계산 / 경계: 복잡도 감소와 메모리 분산은 다른 축임.
+ - 라딕스 어텐션(RadixAttention) [판정 선례]: 유사: 장문맥 서빙 비용 절감 목적 공유 / 차이: 요청 간 prefix KV 재사용 ↔ 한 요청 내부 시퀀스의 분산 계산 / 경계: 캐시 재사용과 시퀀스 병렬화의 층위 차이로 결합 가능.
+ - 제한적 슬라이딩 윈도우 재생(SWA Bounded Replay) [판정 선례]: 유사: 긴 컨텍스트에서 메모리 부담 완화 / 차이: 미저장 로컬 상태 replay ↔ K·V 블록 ring 순환을 통한 exact attention / 경계: 로컬 윈도우 상태 복원과 전역 dense attention 분산은 별개 축임.
+7. 변형·확장 상세
+   1) 스트라이프드 링 어텐션(Striped Ring Attention)
+     - 개념: causal attention에서 장치별 연산 불균형을 줄이기 위한 토큰 재배치 변형임.
+     - 작동원리:
+       ⓐ 연속 토큰을 통째로 한 장치에 몰아두지 않고 stripe 형태로 분산 배치함.
+       ⓑ causal mask 아래에서도 각 장치가 더 비슷한 양의 유효 블록 연산을 맡도록 유도함.
+     - 장점: 장치 유휴 시간 감소와 부하 균등화 기대.
+     - 단점(고유): 데이터 배치·인덱싱 복잡성 증가.
+     - 예시: Ring Attention 원전의 causal load balance 개선 맥락.
+   2) 지그재그 링 어텐션(ZigZag Ring Attention)
+     - 개념: causal mask 하의 불균형과 통신 비효율 완화 목적의 후속 ring 순환 변형임.
+     - 작동원리:
+       ⓐ 토큰 또는 블록 순서를 지그재그 방식으로 배치해 장치별 유효 연산량을 평탄화함.
+       ⓑ 후속 시퀀스 병렬 프레임워크에서 ring 계열 최적화 축으로 활용됨.
+     - 장점: causal 시나리오의 확장 효율 개선 가능성.
+     - 단점(고유): 구현 의존성이 높고 프레임워크별 지원 차이 존재.
+     - 예시: USP 문헌의 ring 계열 비교 대상.
+   3) 통합 시퀀스 병렬(USP)
+     - 개념: DeepSpeed-Ulysses와 Ring Attention을 통합해 다양한 모델 구조·하드웨어 토폴로지에 적응하려는 시퀀스 병렬 프레임워크임.
+     - 작동원리:
+       ⓐ head 차원의 all-to-all 병렬과 sequence 차원의 ring 병렬을 조합함.
+       ⓑ attention·모델 구조·네트워크 환경에 따라 병렬 전략을 조정함.
+     - 장점: 단일 병렬화 방식 대비 하드웨어 강건성 및 적용 범위 확대.
+     - 단점(고유): 시스템 설계 복잡성과 튜닝 부담 증가.
+     - 예시: 장문맥 생성형 AI용 통합 시퀀스 병렬 프레임워크.
+8. 참고 문헌
+ - [논문·핵심기법] Liu, H., et al. Ring Attention with Blockwise Transformers for Near-Infinite Context (ICLR 2024, arXiv:2310.01889, https://arxiv.org/abs/2310.01889): §1·§2 원전 — 시퀀스 분할·ring K/V 순환·online softmax 기반 exact attention 제시 · TPUv4-512(장치당 32GB) 기준 기존 비교군 대비 최대 512배 더 긴 시퀀스 학습 가능 보고.
+ - [논문·핵심기법] Liu, H., et al. World Model on Million-Length Video and Language with RingAttention (arXiv:2402.08269, https://arxiv.org/abs/2402.08269): §3·§5 근거 — RingAttention을 적용한 LWM 사례 · 1M-token 비디오+언어 학습 문맥 뒷받침.
+ - [논문·벤치마크] Fang, J., et al. USP: A Unified Sequence Parallelism Approach for Long Context Generative AI (arXiv:2405.07719, https://arxiv.org/abs/2405.07719): §4·§7 근거 — Ring Attention과 Ulysses 비교·통합 · 하드웨어 토폴로지와 시퀀스 병렬 선택의 실무 조건 뒷받침.
+ - [도구/프레임워크] haoliuhl. ringattention (GitHub, https://github.com/haoliuhl/ringattention): §2·§5 근거 — 공식 참조 구현 저장소.
+
 인공지능(AI) (작성일: 26.02.04)(수정일: 26.06.11)
 1. 발전 단계
  - 구분: ANI(Artificial Narrow Intelligence) -> AGI(Artificial General Intelligence) -> ASI(Artificial Super Intelligence)
