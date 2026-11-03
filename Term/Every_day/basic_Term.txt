@@ -147,3 +147,8 @@ DoRA: 가중치를 크기와 방향으로 분해한 뒤 방향에 저랭크 갱�
 QLoRA: 저비트 베이스 가중치와 고정밀 LoRA 어댑터를 결합하는 방식
 DualPipe(양방향 파이프라인 병렬화): 양끝 동시 주입·B/W 분할·청크 수준 통신-연산 중첩을 결합한 파이프라인 학습 스케줄
 DualPipeV: DualPipe 저장소에 공개된 V형·cut-in-half 계열 스케줄 변형
+청크 프리필(Chunked Prefill): 긴 프리필을 여러 토큰 청크로 나누어 디코드와 같은 실행 흐름에서 처리하는 LLM 서빙 스케줄링
+SARATHI: chunked prefill과 decode-maximal batching을 제안한 2023년 원천 기법
+Sarathi-Serve: 청크 프리필을 stall-free scheduling과 SLO 중심 서빙으로 확장한 2024년 스케줄러
+Dynamic SplitFuse: DeepSpeed-FastGen에서 긴 프롬프트를 분할하고 생성 토큰과 결합해 순전파 크기를 일정하게 유지하는 같은 착상의 스케줄링
+반복 단위 스케줄링(Iteration-level Scheduling): Orca가 제안한, 매 iteration마다 배치를 다시 구성하는 연속 배칭 방식으로 청크 프리필의 전제
