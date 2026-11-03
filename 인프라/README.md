@@ -27,12 +27,19 @@
 |---|---|
 | [리눅스 명령어](linux/linux-commands.md) | 권한·그룹 협업 설정, 계정·sudo 관리, 프로세스, 로그 파싱, 압축, vi, 시스템·네트워크 점검 |
 | [디스크 용량 분석](linux/disk-usage-analysis.md) | du/df 사용법, 날짜별 스냅샷 비교(awk), 삭제됐는데 공간이 안 돌아오는 경우, 정리 시 주의 |
+| [OS 재설치 체크리스트](linux/os-reinstall-checklist.md) | 재설치 전 기록, 데이터 백업, 디스크 레이블·fstab, 설치 후 보안 기본, 복원·검증 | 
 
 ### kubernetes
 
 | 문서 | 내용 |
 |---|---|
 | [쿠버네티스(k3s) 명령어](kubernetes/k3s-commands.md) | 파드 조회·로그·exec, 파드에서 파일 추출, UID로 파드 찾기, 재시작·스케일, crictl 이미지 정리 |
+
+### troubleshooting
+
+| 문서 | 내용 |
+|---|---|
+| [/var 지속 증가 — 컨테이너 쓰기 레이어](troubleshooting/2026-08-var-growth-container-writable-layer.md) | 증가 주체 귀속 절차(du↔crictl 대조), GC 관할 밖 영역 |
 
 ---
 
