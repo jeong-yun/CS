@@ -152,3 +152,6 @@ SARATHI: chunked prefill과 decode-maximal batching을 제안한 2023년 원천 
 Sarathi-Serve: 청크 프리필을 stall-free scheduling과 SLO 중심 서빙으로 확장한 2024년 스케줄러
 Dynamic SplitFuse: DeepSpeed-FastGen에서 긴 프롬프트를 분할하고 생성 토큰과 결합해 순전파 크기를 일정하게 유지하는 같은 착상의 스케줄링
 반복 단위 스케줄링(Iteration-level Scheduling): Orca가 제안한, 매 iteration마다 배치를 다시 구성하는 연속 배칭 방식으로 청크 프리필의 전제
+바이트 잠재 트랜스포머(Byte Latent Transformer, BLT): 고정 서브워드 토크나이저 없이 바이트를 동적 패치로 묶어 잠재 트랜스포머에서 처리하는 언어 모델 아키텍처
+엔트로피 기반 동적 패칭(Entropy-based Dynamic Patching): 다음 바이트의 예측 난이도에 따라 패치 경계를 동적으로 정하는 방식
+로컬–글로벌 잠재 트랜스포머(Local–Global Latent Transformer): 로컬 모듈이 바이트와 패치를 변환하고 글로벌 모듈이 패치 시퀀스를 처리하는 계층 구조
