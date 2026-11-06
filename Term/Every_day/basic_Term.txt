@@ -155,3 +155,8 @@ Dynamic SplitFuse: DeepSpeed-FastGen에서 긴 프롬프트를 분할하고 생�
 바이트 잠재 트랜스포머(Byte Latent Transformer, BLT): 고정 서브워드 토크나이저 없이 바이트를 동적 패치로 묶어 잠재 트랜스포머에서 처리하는 언어 모델 아키텍처
 엔트로피 기반 동적 패칭(Entropy-based Dynamic Patching): 다음 바이트의 예측 난이도에 따라 패치 경계를 동적으로 정하는 방식
 로컬–글로벌 잠재 트랜스포머(Local–Global Latent Transformer): 로컬 모듈이 바이트와 패치를 변환하고 글로벌 모듈이 패치 시퀀스를 처리하는 계층 구조
+연속 사고(Continuous Thought): 토큰으로 디코딩하지 않고 마지막 층 은닉 상태를 그대로 다음 추론 입력으로 쓰는 벡터
+잠재 공간(Latent Space): 사람이 읽는 언어가 아닌 모델 내부 연속 벡터 표현 공간
+커리큘럼 학습(Curriculum Learning): 쉬운 설정에서 시작해 치환 비율·난이도를 단계적으로 높이는 학습 방식
+은닉 상태(Hidden State): 트랜스포머 각 층이 계산한 토큰 위치별 내부 벡터 표현
+감시 가능성(Monitorability): 모델의 중간 추론을 읽어 위험한 의도·행동을 탐지할 수 있는 정도
