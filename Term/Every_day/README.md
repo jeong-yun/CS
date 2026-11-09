@@ -11,7 +11,8 @@
 |---|---|
 | `0. Summary.md` | 분류별 로드맵(개념 한 줄 정의) + 핵심 개념 한 줄 요약 표 |
 | `Cloud & Infrastructure(클라우드 및 인프라)_Term.txt` | 1. Cloud & Infra 항목 |
-| `Artificial Intelligence(AI 지능 및 시스템)_Term.txt` | 2. AI 항목 |
+| `Artificial Intelligence - App(AI 앱 적용 가능)_Term.txt` | 2-1. AI 항목 중 LLM 을 부르는 앱에서 바로 적용할 수 있는 것 (프롬프트·호출 흐름·검색·검증·에이전트 구조) |
+| `Artificial Intelligence - Model(AI 앱 적용 불가, 모델·학습·GPU)_Term.txt` | 2-2. AI 항목 중 앱에서는 바꿀 수 없는 것 (모델 구조·서빙·GPU 커널·학습·모델 내부 분석·총론) — 그 기술을 쓴 모델을 고르는 것으로만 반영 |
 | `Security & Trust(보안 및 신뢰성)_Term.txt` | 3. Security & Trust 항목 |
 | `basic_Term.txt` | 항목을 이해하는 데 필요한 기초 용어 (`용어: 한 줄 정의`) |
 | `old_term.txt` | 통합(병합·편입)·삭제로 빠진 항목의 원문 보관소 (최근 것이 위) |
@@ -27,11 +28,13 @@
 | 분류 | 넣는 것 | 예 |
 |---|---|---|
 | **1. Cloud & Infrastructure** | 시스템·데이터·서빙 인프라의 아키텍처와 성능 (커널·네트워크·스트리밍·DB 엔진·LLM 서빙·분산 학습 인프라) | eBPF CNI, Kafka, ClickHouse 시퀀스 매칭, RadixAttention, 컨텍스트 캐싱 |
-| **2. Artificial Intelligence** | 모델·학습·추론 알고리즘과 AI 시스템 설계 (아키텍처, 정렬·강화학습, 추론 스케일링, RAG·에이전트) | MoD, GRPO, TTSL, 에이전틱 RAG |
+| **2-1. Artificial Intelligence - App** | AI 중 LLM API 를 부르는 앱이 코드로 바로 적용할 수 있는 것 (프롬프트·추론 시간 연산·RAG·에이전트·검증 루프·도구 연결) | TTSL, 에이전틱 RAG, 하네스 엔지니어링, MCP |
+| **2-2. Artificial Intelligence - Model** | AI 중 앱에서는 바꿀 수 없는 것 — 모델 구조·서빙 엔진·GPU 커널(그 기술을 쓴 모델·서빙을 고르는 것으로만 반영), 가중치 학습·정렬·모델 내부 분석·연구·총론 | MoD, MLA, GRPO, LoRA |
 | **3. Security & Trust** | 공격·방어, 프라이버시, 신뢰(증명·무결성), 보안 거버넌스 | 프롬프트 인젝션, 기밀 컴퓨팅(TEE), 영지식 증명, CNAPP, N2SF |
 
 - 보안에 *쓰이는* 범용 엔진·성능 기법은 Cloud & Infra, 그 기법으로 위협을 *탐지·대응하는 방법론* 은 Security & Trust 에 둡니다.
   (예: ClickHouse FSM 시퀀스 매칭 = Cloud, 시퀀스 기반 APT 위협 헌팅 = Security)
+- AI 의 2-1 / 2-2 는 "LLM 을 API 로 부르는 앱(예: Agent Office)이 모델을 바꾸지 않고 코드만으로 적용할 수 있는가" 로 나눕니다. 모델을 고르거나 서빙·학습을 바꿔야만 효과가 있으면 2-2 입니다.
 - 애매하면 옮기지 않고, 옮길 때는 이유를 남깁니다.
 
 ## 🏷️ 태그
