@@ -173,3 +173,8 @@ bitnet.cpp: 삼진 가중치 모델의 CPU·GPU 추론을 위한 Microsoft 공�
 CIMD(Client ID Metadata Documents): OAuth 클라이언트 ID를 HTTPS URL로 두고 그 주소에 클라이언트 메타데이터 JSON을 호스팅해 사전 등록 없이 식별하는 범용 OAuth 방식
 ID-JAG(Identity Assertion JWT Authorization Grant): IETF OAuth WG 초안으로, IdP가 정책에 따라 발급한 신원 어설션 JWT를 제시해 다른 서비스의 액세스 토큰을 받는 인가 방식. Okta는 이를 XAA(Cross App Access)로 제공
 툴 포이즈닝(Tool Poisoning): MCP 도구 설명(description)에 악성 지시를 심어 에이전트 컨텍스트로 유입시키는 간접 프롬프트 인젝션 유형
+옵티마이저 상태(Optimizer States): Adam 등 옵티마이저가 파라미터별로 유지하는 1·2차 모멘트 같은 보조 값으로, 학습 메모리의 큰 비중을 차지함
+특이값 분해(Singular Value Decomposition, SVD): 행렬을 직교 기저와 특이값으로 분해해 상위 r개 방향의 저랭크 근사를 얻는 연산
+저랭크 부분공간(Low-Rank Subspace): 행렬의 주요 변동 방향 r개가 이루는 저차원 공간으로, GaLore에서 기울기 투영의 목표 공간
+레이어별 가중치 갱신(Per-layer Weight Update): 역전파 중 레이어마다 기울기 계산 직후 가중치를 갱신해 전체 기울기를 동시에 보관하지 않는 방식
+확률적 반올림(Stochastic Rounding): 저정밀 변환 시 반올림 방향을 값에 비례한 확률로 정해, 작은 갱신분이 기댓값 기준으로 누적되도록 하는 방식
