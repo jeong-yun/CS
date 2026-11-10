@@ -166,3 +166,7 @@ Dynamic SplitFuse: DeepSpeed-FastGen에서 긴 프롬프트를 분할하고 생�
 JIT 컴파일(Just-In-Time Compilation): 실행 시점에 입력 형태와 어텐션 변형에 맞춰 커널을 컴파일하는 방식
 CUDAGraph: GPU 연산 그래프를 미리 캡처해 고정 구성으로 재실행하는 CUDA 기능
 PagedAttention: KV 캐시를 고정 크기 블록으로 나눠 블록 테이블로 관리하는 vLLM의 메모리 관리 기법
+삼진 가중치(Ternary Weight): 가중치를 {-1, 0, +1} 세 값으로만 표현하는 방식으로 정보량이 log₂3≈1.58비트
+BitLinear: 표준 선형 레이어를 대체해 양자화된 가중치·활성화로 내적을 수행하는 BitNet의 핵심 레이어
+양자화 인식 학습(Quantization-Aware Training, QAT): 학습 중 저비트 제약을 순전파에 적용해 모델이 그 제약에 적응하도록 하는 학습 방식
+bitnet.cpp: 삼진 가중치 모델의 CPU·GPU 추론을 위한 Microsoft 공식 전용 추론 프레임워크
