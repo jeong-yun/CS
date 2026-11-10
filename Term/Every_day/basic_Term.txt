@@ -162,3 +162,7 @@ Dynamic SplitFuse: DeepSpeed-FastGen에서 긴 프롬프트를 분할하고 생�
 감시 가능성(Monitorability): 모델의 중간 추론을 읽어 위험한 의도·행동을 탐지할 수 있는 정도
 희소 어텐션(Sparse Attention): 모든 토큰 쌍이 아니라 일부 토큰·블록만 참조해 어텐션 연산량을 줄이는 방식
 사후 희소화(Post-hoc Sparsity): 밀집으로 학습한 모델에 추론 시점에서만 희소 패턴을 적용하는 방식
+블록-희소 형식(Block-Sparse Format): KV 저장 레이아웃을 블록 단위 희소 행렬로 표현해 이질적 저장 방식을 통일하는 형식
+JIT 컴파일(Just-In-Time Compilation): 실행 시점에 입력 형태와 어텐션 변형에 맞춰 커널을 컴파일하는 방식
+CUDAGraph: GPU 연산 그래프를 미리 캡처해 고정 구성으로 재실행하는 CUDA 기능
+PagedAttention: KV 캐시를 고정 크기 블록으로 나눠 블록 테이블로 관리하는 vLLM의 메모리 관리 기법
