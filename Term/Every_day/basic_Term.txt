@@ -178,3 +178,5 @@ ID-JAG(Identity Assertion JWT Authorization Grant): IETF OAuth WG 초안으로, 
 저랭크 부분공간(Low-Rank Subspace): 행렬의 주요 변동 방향 r개가 이루는 저차원 공간으로, GaLore에서 기울기 투영의 목표 공간
 레이어별 가중치 갱신(Per-layer Weight Update): 역전파 중 레이어마다 기울기 계산 직후 가중치를 갱신해 전체 기울기를 동시에 보관하지 않는 방식
 확률적 반올림(Stochastic Rounding): 저정밀 변환 시 반올림 방향을 값에 비례한 확률로 정해, 작은 갱신분이 기댓값 기준으로 누적되도록 하는 방식
+이점(Advantage): 특정 답변이 평균 대비 얼마나 나은지를 나타내는 값으로, 정책 갱신 방향과 크기를 정함
+제로 분산 그룹(Zero-Variance Group): 그룹 내 보상이 모두 같아 표준편차가 0이 되고 이점이 사라져 학습 신호가 없는 그룹
