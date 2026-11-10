@@ -1108,75 +1108,108 @@ RAG(Retrieval-Augmented Generation, 검색 증강 생성) (작성일: 26.03.06)(
   2) RDF (Resource Description Framework): 웹상의 자원 관계를 기술하기 위한 표준 모델.
   3) OWL (Web Ontology Language): 온톨로지를 작성하기 위한 대표적인 표준 언어.
 
-MCP(Model Context Protocol) (작성일: 26.02.04) (수정일: 26.04.17, 07.29, 09.07)
+MCP(Model Context Protocol) (작성일: 26.02.04) (수정일: 26.04.17, 07.29, 09.07, 11.10)
  - 부제: 에이전트–도구 연결의 개방형 표준과 그 공격 표면
 1. 정의 및 개념
- - LLM 에이전트와 외부 데이터·도구 사이의 접속 방식을 표준화한 개방형 프로토콜. 공식 비유는 "AI용 범용 USB-C 포트" — 도구마다 전용 커넥터를 짜던 N:N 구조를 N:1:N으로 단순화.
+ - LLM 애플리케이션(호스트)과 외부 데이터·도구(서버) 사이의 접속 방식을 표준화한 개방형 프로토콜(Anthropic, 2024-11 공개). 공식 발표가 스스로를 "universal, open standard"로 서술하며, 공식 비유는 "AI용 범용 USB-C 포트" — 도구마다 전용 커넥터를 짜던 N×M 통합 구조를 N+M으로 단순화.
+ - 핵심 경계: 바꾸는 것 = 호스트–서버 사이의 메시징·능력 선언·전송·인가 규격 / 그대로인 것 = 모델 가중치, 도구 선택 판단 로직, 워크플로 상태 관리. 모델의 함수 호출 기능(「벤더 함수 호출」)이 아니라 그 호출 대상을 노출·탐색하는 계층이며, 호출 허용 여부를 판정하는 정책(「AI 에이전트 가드레일」)도 아님.
  - 거버넌스(시점 구분 필수): 2024-11 Anthropic 공개 → 2025-12-09 Linux Foundation 산하 「Agentic AI Foundation(AAIF)」에 기부(goose·AGENTS.md와 함께 앵커 프로젝트)되어 벤더 중립 거버넌스로 이전. 스펙·공식 SDK는 MIT 계열 오픈소스로 배포.
+ - 채택 범위: 다수 클라이언트·프레임워크가 지원하나 지원 기능 범위와 성숙도는 제품·시점별로 상이(→ §4 채택 범위 불균일).
  - 등장 배경
    ① 문제: 에이전트가 사내 DB·파일시스템·협업 툴에 접근하려면 도구마다 1:1 맞춤 커넥터를 개발·유지해야 하는 N×M 통합 파편화 발생.
    ② 원인: 모델과 외부 시스템이 서로의 스키마·호출 형식을 이해할 공통 문법이 부재. 벤더별 함수 호출 명세는 그 벤더 안에서만 유효.
-   ③ 처방: 메시징 규격을 JSON-RPC 2.0 으로 통일하고, 도구가 스스로 능력을 선언하는 자기 설명(self-describing) 구조를 표준화. 서버를 한 번 만들면 지원 호스트 간 재사용 가능.
+   ③ 처방: 메시징 규격을 JSON-RPC 2.0으로 통일하고, 도구가 스스로 능력을 선언하는 자기 설명(self-describing) 구조를 표준화. 에디터–언어 서버 분리 구조인 LSP(Language Server Protocol)에서 영감을 받은 설계. 서버를 한 번 만들면 지원 호스트 간 재사용 가능.
 2. 작동 원리
  ⓐ 3계층 구조(Host–Client–Server)
    - Host: LLM이 도는 앱(IDE·챗봇·오케스트레이터). UX·모델 조율·보안 정책 집행 담당.
    - Client: 호스트 내부에서 서버와 1:1 통신을 중개.
    - Server: 실제 데이터·기능 종단점(사내 DB·CTI 피드 등).
  ⓑ 3대 제공 요소
-   - Resources: LLM이 읽어들이는 정적·동적 데이터 컨텍스트.
+   - Resources: LLM이 읽어들이는 정적·동적 데이터 컨텍스트(파일·DB 스키마 등을 URI로 식별).
    - Prompts: 재사용 가능한 프롬프트 템플릿·워크플로 뷰.
-   - Tools: LLM이 실행하는 외부 액션(API 호출·DB 쓰기 등) 기능 명세.
- ⓒ 기능 협상(Capability Negotiation): 연결 시 initialize 요청으로 프로토콜 버전과 지원 기능(도구·리소스·프롬프트·로깅)을 양방향 선언 → 버전 불일치에도 통신 가능. 이 핸드셰이크로 세션이 수립·유지되므로 MCP는 세션 기반(stateful) 프로토콜.
- ⓓ 추상화·탐색·추론: 서버가 SQL·NoSQL·파일 등을 표준 형태로 통역(추상화)하고 매니페스트로 자기 능력을 전달(탐색) → 모델이 이를 읽고 "이 질문엔 A 도구"라고 판단·실행(추론).
- ⓔ 전송(Transport): 로컬은 stdio, 원격은 Streamable HTTP(HTTP POST + SSE 스트리밍). 2025-03-26 스펙에서 기존 HTTP+SSE 전송을 대체(재연결·확장성·보안 단순화) (초안의 "SSE 기반 HTTP"는 대체된 구식 방식).
- ⓕ 인가 규격의 편입: 2025-03-26에서 OAuth 2.1 기반 인가 프레임워크가 스펙에 들어오고, 이후 보호 자원 메타데이터 기반으로 정비. 엔터프라이즈에서는 ID-JAG(Identity Assertion JWT Authorization Grant)로 IdP가 서버 접근을 중앙 프로비저닝해, 사용자를 서버별 동의 화면으로 보내지 않음.
+   - Tools: LLM이 선택해 호출을 요청하는 외부 액션(API 호출·DB 쓰기 등) 기능 명세. 실제 실행 통제는 호스트 정책·사용자 승인에 의존.
+ ⓒ 기능 협상(Capability Negotiation): 연결 시 initialize 요청으로 프로토콜 버전과 지원 기능(도구·리소스·프롬프트·로깅)을 양방향 선언 → 합의된 버전·기능 범위 안에서만 통신하며 합의 불가 시 연결 종료. 이후 통신은 이 핸드셰이크로 협상된 세션 컨텍스트를 전제로 함. 단 Streamable HTTP 전송에서는 세션 ID(Mcp-Session-Id) 발급 여부가 서버 선택이라, 세션 ID 없이 요청 단위로 처리하는 운용도 가능(스펙 Session Management 절 기준)(→ §4 원격 배포의 세션 상태와 수평 확장).
+ ⓓ 추상화·탐색·추론: 서버가 SQL·NoSQL·파일 등을 표준 형태로 통역(추상화)하고 매니페스트로 자기 능력을 전달(탐색) → 모델이 이를 읽고 "이 질문엔 A 도구"라고 판단해 실행 요청(추론).
+ ⓔ 전송(Transport): 로컬은 stdio, 원격은 Streamable HTTP(HTTP POST + SSE 스트리밍). 2025-03-26 스펙에서 기존 HTTP+SSE 전송을 대체(재연결·확장성·보안 단순화).
+ ⓕ 인가 규격의 편입: 2025-03-26에서 OAuth 2.1(IETF OAuth WG 초안) 기반 인가 프레임워크가 스펙에 들어오고, 이후 보호 자원 메타데이터 기반으로 정비.
+   - CIMD(Client ID Metadata Documents): 클라이언트 ID를 HTTPS URL로 두고 그 주소에 클라이언트 메타데이터 JSON을 호스팅해 사전 등록 없이 식별. 서버가 인가 전에 메타데이터를 가져와 검증. MCP 전용이 아닌 범용 OAuth 메커니즘을 MCP가 코어 클라이언트 등록 방식으로 채택한 것으로, 동적 클라이언트 등록(DCR)을 대체하는 방향으로 부상(2025-11 무렵, 해설 자료 기준).
+   - 엔터프라이즈 관리형 인가: 코어 인가 흐름 위에 얹는 스펙 확장(extension). IdP(Identity Provider; 사용자 계정을 보관·인증하고 그 결과를 다른 서비스에 증명하는 중앙 신원 시스템)가 서버 접근을 중앙에서 프로비저닝(provisioning; 계정·권한을 미리 생성·부여하는 행위)하는 흐름. 상세는 → §7-1. CIMD(클라이언트 식별)와 이 확장(기업용 접근 위임)은 서로 다른 계층이며, MCP 인가의 기반은 OAuth 2.1.
  ⓖ 컨텍스트 캡슐화·세밀한 접근 제어: 원본을 그대로 넘기지 않고 리소스·프롬프트 템플릿으로 가공 전달. 서버별 독립 권한(예: 읽기 전용)으로 쓰기 차단 가능. 단 이는 서버 구현이 제공하는 정책이며 프로토콜이 강제하는 격리가 아님(→ §4).
 3. 좋아진 점(장점/개선점)
- - 상호 운용성(Write Once, Use Anywhere): MCP 서버를 한 번 규격에 맞게 만들면 지원 호스트 간 재사용 가능 — 도구 호출 코드를 에이전트마다 새로 쓰지 않아도 됨.
- - 중앙 집중형 보안 관리: 기업은 단일 MCP 서버 인터페이스에서 AI 모델의 모든 데이터 접근 로그를 모니터링하고 차단할 수 있어 보안 가시성이 비약적으로 향상. 엔터프라이즈 관리형 인가(Enterprise-Managed Authorization)가 stable — ID-JAG(Identity Assertion JWT(JSON Web Token) Authorization Grant)로 IdP(Identity Provider, 신원 제공자, 사용자 신원(계정)을 보관·인증하고, 그 결과를 다른 서비스에 증명해 주는 중앙 시스템.)가 서버 접근을 중앙 프로비저닝("쓸 수 있게 미리 마련해 주는 것" — 즉 계정·권한·자원을 생성하고 부여하는 행위), 사용자를 서버별 동의 화면으로 보내지 않음(Okta·VS Code 등 지원).
- - 복잡도 감소: 개발자는 AI 모델의 특성을 고려할 필요 없이, 표준 규약에 맞춰 데이터 연결부만 작성하면 되므로 에이전트 구축 속도 증가.
+ - 상호 운용성(Write Once, Use Anywhere): MCP 서버를 한 번 규격에 맞게 만들면 MCP를 지원하는 호스트 간 재사용 가능 — 에이전트마다 도구 호출 코드를 새로 쓰지 않아도 됨(실제 연동 범위는 각 호스트의 지원 기능·설정에 의존).
+ - 중앙 집중형 보안 관리: 기업은 단일 MCP 서버 인터페이스에서 AI 모델의 데이터 접근 로그를 모니터링하고 차단할 수 있어 보안 가시성 향상. 엔터프라이즈 관리형 인가 확장(§7-1)으로 IdP가 서버 접근을 중앙 통제해 서버별 동의 절차 부담 감소(Okta 등 지원, 벤더 문서 기준).
+ - 복잡도 감소: 개발자는 AI 모델의 특성을 고려할 필요 없이 표준 규약에 맞춰 데이터 연결부만 작성하면 되므로 에이전트 구축 속도 증가.
+ - 역할 분담: 에이전트의 추론 흐름과 외부 데이터 접근 로직을 분리해, 프롬프트 내부에 하드코딩된 API 로직을 줄이고 유지보수성·재사용성 향상(정량 효과는 원전 미제시).
  - 최소 권한 적용 용이: DB 전체 쿼리 권한 대신 제한된 API 세트만 노출하는 독립 서버 프로세스를 구성 가능.
  - 동적 지식 갱신: 재학습 없이 서버·API만 갱신하면 최신 정보 반영.
-4. 문제점(단점/한계)
- - 서버 구현체 취약점(실제 지배적 위협): 프로토콜이 안전해도 개별 MCP 서버 코드가 뚫림 — Anthropic Git MCP 서버 경로 탐색·인자 주입(CVE-2025-68143 CVSS 8.8 / 68144 8.1 / 68145 7.1), mcp-remote RCE(CVE-2025-6514, CVSS 9.6, 배포 43.7만+), 2026 초 60일간 30+ CVE(약 43%가 커맨드 인젝션), 조사된 2,614개 구현 중 82%가 경로 탐색에 취약한 파일 연산 사용.
+4. 문제점 및 한계
+ - 서버 구현체 취약점(실제 지배적 위협): 프로토콜이 안전해도 개별 MCP 서버 코드가 뚫림 — Anthropic Git MCP 서버 경로 탐색·인자 주입(CVE-2025-68143 CVSS 8.8 / 68144 8.1 / 68145 7.1), mcp-remote OS 커맨드 인젝션(CVE-2025-6514, CVSS 9.6, NVD 기술 기준), 2026 초 60일간 30+ CVE(약 43%가 커맨드 인젝션, mcp-cve-project 2차 집계 기준), 조사된 2,614개 구현 중 82%가 경로 탐색에 취약한 파일 연산 사용(SoK 논문의 MCP 생태계 조사 한정).
  - 툴 포이즈닝(Tool Poisoning): 도구 설명(description)이 에이전트 컨텍스트에 '신뢰된 내용'으로 유입되어 간접 프롬프트 인젝션 통로가 됨(Invariant Labs, 2025.04). 유니코드 은닉으로 승인 화면과 실제 페이로드가 달라지는 사례도 보고.
- - 프로토콜은 격리를 제공하지 않음: 스펙은 서버 프로세스 격리·권한 축소를 강제하지 않음. 격리는 배포자가 컨테이너·권한 분리로 별도 구현해야 하며, 위 CVE 목록이 그 부재의 결과.
+ - 프로토콜은 격리를 제공하지 않음: 스펙은 서버 프로세스 격리·권한 축소를 강제하지 않음. 격리는 배포자가 컨테이너·권한 분리로 별도 구현해야 하며, 위 CVE 목록이 그 부재의 결과. 대응은 최소 권한, 승인 화면 검토, 로깅·감사, 컨테이너 격리 등 운영 통제에 의존(→ 「AI 에이전트 가드레일」).
  - 섀도 IT·감사 공백: 통제 없이 외부 MCP 엔드포인트를 붙이면 "누가 무엇에 연결했는지" 가시성이 없어 신뢰 도메인 밖에서 동작(→ 게이트웨이·IdP 통합 필수).
  - 차원 분리 — 통신 지연 ↔ 컨텍스트 토큰.
    - 지연 축: 표준 규약 준수를 위한 직렬화·라운드트립으로 지연 추가 — 실시간 관제 에이전트에는 부담.
    - 컨텍스트 축: 서버·도구를 많이 붙일수록 도구 정의가 프롬프트를 잠식해 입력 토큰 비용이 늘고 도구 선택 정확도가 하락(tool bloat). 지연과 별개 축이며, 실무에서 서버 수를 제한하거나 도구를 선별 노출하는 게이트웨이가 필요해지는 원인.
+ - 원격 배포의 세션 상태와 수평 확장: 스펙의 Streamable HTTP 세션 관리(Session Management) 절에 따라 서버가 세션 ID를 발급하면 클라이언트는 이후 요청에 이를 포함함(스펙 기준). 이런 서버를 여러 인스턴스로 늘리면 같은 세션의 요청이 같은 인스턴스로 가도록 로드밸런서 세션 고정(sticky session)이나 공유 세션 저장소가 필요해 수평 확장이 제약됨(구조적 귀결, 정량 근거 미확인).
+ - 서버 운영 오버헤드: 단순한 REST API 호출 스크립트에 비해 로컬 또는 원격에 별도 MCP 서버 프로세스를 호스팅·관리해야 하는 운영 부담 추가.
  - 레거시 마이그레이션 부담: 기존 커스텀 REST·프레임워크 전용 Tool 로직을 MCP 서버 규격(JSON-RPC 핸들러)으로 재작성해야 하는 전환 비용.
- - 장기 실행 작업의 표준 패턴 미성숙: JSON-RPC 기반으로 알림·진행 통지·취소를 지원하고 서버가 실행 중 사용자 입력을 요청하는 Elicitation도 추가됐으나, 수 시간짜리 배치나 복잡한 콜백 제어의 관례가 확립되지 않아 상태 추적·타임아웃 관리가 까다로움.
- - 워크플로 상태 관리가 호스트로 전가: 프로토콜은 세션은 유지하나 다단계 워크플로의 진행 상태는 정의하지 않음. 따라서 여러 서버를 번갈아 호출하는 다중 에이전트 구성에서는 호스트 쪽에 별도 상태 머신 설계가 강제됨.
- - 표준화 전쟁: MCP가 사실상 표준으로 굳었고 AAIF로 중립화됐으나, 에이전트 간 통신 규약(A2A 등)과의 역할 분담·경쟁은 진행 중.
- - "MCP가 필요한가"라는 회의론: 도구 발견·자기 설명을 표준화한 것은 사실이나, OpenAPI 명세 + 벤더 함수 호출로도 상당 부분 달성 가능하다는 비판이 존재. 새 프로토콜 도입 비용 대비 이득이 조직 규모·도구 다양성에 의존한다는 논점.
+ - 장기 실행 작업의 표준 패턴 미성숙: JSON-RPC 기반으로 알림·진행 통지·취소를 지원하고, 서버가 실행 중 사용자 입력을 요청하는 Elicitation도 추가됐으나, 수 시간짜리 배치나 복잡한 콜백 제어의 관례가 확립되지 않아 상태 추적·타임아웃 관리가 까다로움.
+ - 워크플로 상태 관리가 호스트로 전가: 프로토콜은 연결 수준의 세션 컨텍스트는 다루나 다단계 워크플로의 진행 상태는 정의하지 않음. 따라서 여러 서버를 번갈아 호출하는 다중 에이전트 구성에서는 호스트 쪽에 별도 상태 머신 설계가 강제됨.
+ - 채택 범위 불균일: 호스트별 지원 기능·인가 방식 성숙도가 달라 "서버 하나로 모든 에이전트 연동"은 보장되지 않음(제품·시점별 확인 필요).
+ - 표준화 전쟁: MCP가 널리 채택되고 AAIF로 중립화됐으나, 에이전트 간 통신 규약(A2A 등)과의 역할 분담·경쟁은 진행 중.
+ - "MCP가 필요한가"라는 회의론: 도구 발견·자기 설명을 표준화한 것은 사실이나, OpenAPI 명세 + 벤더 함수 호출로도 상당 부분 달성할 수 있다는 비판이 존재. 새 프로토콜 도입 비용 대비 이득이 조직 규모·도구 다양성에 의존한다는 논점. 관련 후속 반박이나 상용화 실패 사례는 확인되지 않음.
+ - 부적합 영역
+   ⓐ 실시간·초저지연 경로: 호출마다 JSON-RPC 라운드트립이 추가되는 시간 민감 판정 루프.
+   ⓑ 소수 도구·단일 시스템 연동: 직접 REST 호출의 운영 비용이 낮아 서버 프로세스 도입 이득이 작은 소규모 구성.
+   ⓒ 검증되지 않은 서드파티 서버 + 고위험 쓰기 권한: 격리·승인·감사 체계 없이 자동 실행하는 구성.
 5. 사용 예시
  - (문서화) 개발 도구 연동: IDE·데스크톱 클라이언트가 파일시스템·Git·이슈 트래커 서버를 붙여 코드 맥락을 조회·조작.
  - (문서화) 데이터 스토어 접속: ClickHouse 등 공식·커뮤니티 MCP 서버로 분석 질의를 도구화.
-6. API vs MCP
- - 기존의 API 방식이 일대일 전용선을 연결하는 방식이었다면, MCP는 규격화된 표준 통로를 이용
-  ⓐ 연결 구조: API(1:1 전용선(Hard-coded)) vs MCP(표준 규격(Plug & Play))
-  ⓑ 지능 수준: API(단순 데이터 전달) vs MCP(자기 설명(Self-describing) 가능)
-  ⓒ 확장성: API(서비스 추가 시마다 새 코드 작성) vs MCP(새로운 MCP 서버(블록) 추가로 해결)
-  ⓓ 제어 주체: API(개발자가 명시적으로 호출) vs MCP(AI가 스스로 도구 사용법을 읽고 판단)
-7. 핵심 비유
- - 레고 블록 조립: 새로운 서비스가 추가되면 해당 서비스용 MCP 블록을 추가, 서비스가 늘어날수록 시스템은 무한히 확장
- - 지능형 프록: 클라이언트와 데이터 사이를 중계하는 프록시 서버와 유사, 단순 중계를 넘어 데이터의 의미를 설명하고 실행까지 돕는 '전문 통역사' 역할 수행
-8. 관계
- - 복합 AI 시스템(Compound AI Systems): 유사: 다중 컴포넌트를 엮어 시스템을 구성한다는 전제를 공유하며, MCP가 그 조합의 배선을 담당. / 차이: 층위 — 무엇을 조합할지의 아키텍처 패러다임 ↔ 조합된 요소가 대화하는 메시징 규격. / 경계: 이중 해리 불성립(MCP는 조합 전제 없이는 존재 이유가 없음) → 상위-하위.
- - 하네스 엔지니어링: 유사: 에이전트가 쓸 도구와 환경을 설계한다는 목적이 동일하고 실무에서 함께 다뤄짐. / 차이: 설계 대상 — 도구 선정·권한·정지 조건 등 환경 자체 ↔ 그 도구에 접속하는 전송·명세 계층. / 경계: 인접하며 직교 — 하네스가 정책을, MCP가 배선을 담당.
+ - (문서화) 엔터프라이즈 인가: Okta XAA가 IdP 중앙 통제형 MCP 서버 접근을 엔터프라이즈 권장 연결 방식으로 제공(→ §7-1).
+ - (응용 추정(비문서화)) 자동화 보안 관제: LangGraph 등으로 오케스트레이션되는 SOC 에이전트가 Splunk용 서버에서 IOC를 조회(Tools)하고, 자산 관리 서버에서 IP 소유자 정보를 읽고(Resources), Slack 서버로 분석 리포트를 발송하는 파이프라인을 단일 규격으로 구성하는 시나리오.
+ - (부적합 사례) 검증되지 않은 외부 MCP 서버에 쓰기 권한을 부여한 자동 실행 구성 — §4의 CVE·툴 포이즈닝이 담당.
+6. 관계 (기존 개념 비교)
+ - 복합 AI 시스템(Compound AI Systems): 유사: 다중 컴포넌트를 엮어 시스템을 구성한다는 전제를 공유하며, MCP가 그 조합의 배선을 담당. / 차이: 층위 — 무엇을 조합할지 정하는 아키텍처 패러다임 ↔ 조합된 요소가 대화하는 메시징 규격. / 경계: 이중 해리 불성립(MCP는 조합 전제 없이는 존재 이유가 없음) → 상위-하위.
+ - 하네스 엔지니어링: 유사: 에이전트가 쓸 도구와 환경을 설계한다는 목적이 같고 실무에서 함께 다뤄짐. / 차이: 설계 대상 — 도구 선정·권한 범위·실행 루프 구성 등 환경 자체 ↔ 그 도구에 접속하는 전송·명세 계층. / 경계: 인접하며 직교 — 하네스가 환경 구성을, MCP가 배선을 담당. 개별 호출의 허용·차단 판정은 하네스가 아니라 「AI 에이전트 가드레일」의 몫(하네스=환경 구성, 가드레일=판정).
  - AI 에이전트 가드레일: 유사: 도구 호출을 통제 대상으로 삼고, MCP 호스트가 정책 집행 지점을 제공. / 차이: 역할 — 호출 허용·예산·권한을 판정 ↔ 호출을 실어 보내는 규격. / 경계: 이중 해리 성립(가드레일은 자체 API 위에서도, MCP는 통제 없이도 각각 작동 — 그래서 §4의 섀도 IT가 발생) → 별도, 결합 필수.
  - 프롬프트 인젝션 §7-1(간접 주입): 유사: 외부 데이터가 지시로 해석되는 구조가 동일 — 툴 포이즈닝이 정확히 이 유형. / 차이: 주입 경로 — 검색된 웹 문서·첨부 ↔ 도구 명세(description) 자체. / 경계: 별도 항목이나 MCP가 새 주입 경로를 만든다는 점에서 교차.
- - AI 레드티밍(§7-1 에이전틱 AI 레드팀): 유사: MCP 서버·도구 체인이 주요 피공격 표면이며 동일 위협을 다룸. / 차이: 역할 — 취약점 발굴 절차·산출물 ↔ 발굴 대상인 연결 규격. / 경계: 공수 관계로 순환(레드팀 결과가 서버 권한 설계로 환류).
- - 에이전틱 RAG: 유사: 검색을 여러 도구 중 하나로 취급하는 구조를 공유하고, MCP가 그 도구 연결 규약을 제공. / 차이: 층위 — 도구를 언제·몇 번 호출할지의 루프 ↔ 호출 규격. / 경계: 직교하며 결합(에이전틱 RAG의 도구 계층을 MCP로 배선).
- - 벤더 함수 호출(Function Calling / Tools API): 유사: 모델이 외부 함수 시그니처를 이해하고 인자를 반환해 외부 액션을 유도. / 차이: 추상화 범위와 종속성 — 특정 벤더 API에 종속된 기능 명세 ↔ 벤더 독립적이며 Resources·Prompts·전송 계층까지 포괄하는 프로토콜. / 경계: 벤더 종속 기능인가, 규격화된 시스템 간 통신 프로토콜인가.
+ - AI 레드티밍(§7-1 에이전틱 AI 레드팀): 유사: MCP 서버·도구 체인이 주요 피공격 표면이며 같은 위협을 다룸. / 차이: 역할 — 취약점 발굴 절차·산출물 ↔ 발굴 대상인 연결 규격. / 경계: 공수 관계로 순환(레드팀 결과가 서버 권한 설계로 환류).
+ - 에이전틱 RAG: 유사: 검색을 여러 도구 중 하나로 취급하는 구조를 공유하고, MCP가 그 도구 연결 규약을 제공. / 차이: 층위 — 도구를 언제·몇 번 호출할지 정하는 루프 ↔ 호출 규격. / 경계: 직교하며 결합(에이전틱 RAG의 도구 계층을 MCP로 배선).
+ - 벤더 함수 호출(Function Calling / Tools API): 유사: 모델이 외부 함수 시그니처를 이해하고 인자를 반환해 외부 액션을 유도. / 차이: 추상화 범위와 종속성 — 특정 벤더 API에 종속된 기능 명세 ↔ 벤더 독립적이며 Resources·Prompts·전송·인가 계층까지 포괄하는 프로토콜. / 경계: 이중 해리 성립(함수 호출은 MCP 없이도, MCP 서버는 LLM 호출 없이도 성립) → 별도+상호참조. 호스트는 흔히 MCP Tools를 모델의 함수 호출 인터페이스로 변환해 결합.
+ - 일반 REST API / OpenAPI: 유사: 외부 기능의 호출 규격이며 OpenAPI도 스키마로 자기 기술 가능. / 차이: 연결 구조와 호출 시점 — 서비스마다 사전 연동 코드를 작성(1:1) ↔ 세션 연결 후 서버가 런타임에 능력을 선언하고 모델이 선택(표준 규격). / 경계: 대체가 아니라 계층 차이이며, 도구 수가 적으면 REST 직접 호출이 유리할 수 있음(§4 회의론).
  - 오케스트레이션 프레임워크(LangChain / LlamaIndex): 유사: LLM과 외부 도구·문서를 결합해 에이전트 파이프라인을 구성. / 차이: 시스템 내 역할 — 사고 흐름·메모리를 엮는 개발 프레임워크(호스트·클라이언트 쪽) ↔ 프레임워크와 도구가 지켜야 할 메시징 규격. / 경계: 상호 보완 — 프레임워크가 MCP를 도구 연결 백본으로 채택 가능.
  - A2A(Agent2Agent): 유사: 둘 다 에이전트 생태계의 개방형 통신 규약이며 벤더 중립 재단으로 이관. / 차이: 통신 상대 — 에이전트↔도구·데이터 ↔ 에이전트↔에이전트. / 경계: 원칙상 상보이나 역할 경계와 중복 범위가 §4의 표준화 논쟁 지점.
-9. 참고 문헌
+ - RepE(표현 공학) [판정 선례]: 유사: 에이전트 도구 오남용 억제라는 방어 맥락에서 함께 거론될 수 있음. / 차이: 개입 층 — 모델 내부 활성화 조작 ↔ 프로토콜·전송·인가 규격(모델 내부는 건드리지 않음). / 경계: 이중 해리 성립, 기술적 접점 없음. MCP 도구 호출 방어로 쓰인 문서화 사례도 확인되지 않음. MCP 방어 수단 분류의 판정 근거로만 인용.
+7. 변형·확장 상세
+   1) 엔터프라이즈 관리형 인가 확장(Enterprise-Managed Authorization)
+     - 개념: MCP 인가의 스펙 확장(extension)으로, 기업 IdP가 MCP 서버 접근을 중앙에서 프로비저닝해 사용자를 서버별 OAuth 동의 화면으로 보내지 않는 인가 흐름(MCP 공식 블로그 기준). MCP 스펙이 자기 인가 흐름의 확장으로 정의해 MCP 없이 독립 성립하지 않으므로 코어 원리(§2)가 아닌 확장으로 분리 — 범용 OAuth 메커니즘을 코어 등록 방식으로 채택한 CIMD가 §2-ⓕ에 남는 것과 대비. 기반 그랜트는 ID-JAG(Identity Assertion JWT Authorization Grant; IETF OAuth WG 초안, JWT는 JSON Web Token)이며, Okta는 이를 XAA(Cross App Access)라는 제품명의 "OAuth 확장"으로 제공(Okta 발표, 2025-11).
+     - 작동원리:
+       ⓐ 신원 확인: 클라이언트가 사내 IdP에서 사용자를 로그인시켜 ID 토큰 수령.
+       ⓑ 토큰 교환·정책 판정: 클라이언트가 ID 토큰을 IdP에 제시해 ID-JAG로 교환(RFC 8693 토큰 교환). 이때 IdP가 관리자 정책에 따라 해당 클라이언트·MCP 서버 조합에 대한 ID-JAG 발급 여부를 판정(ID-JAG 초안 기준).
+       ⓒ 접근 토큰 발급: 클라이언트가 ID-JAG를 MCP 서버 쪽 인가 서버에 JWT Bearer 그랜트(RFC 7523)로 제시해 액세스 토큰 수령. ⓐ~ⓒ 총 3회 HTTP 호출(해설 자료 기준).
+     - 장점: IdP 한 곳에서 서버 접근을 승인·회수하므로 관리자 중앙 통제와 감사 가시성 향상. 사용자의 서버별 동의 절차 부담 감소(벤더 문서 기준, 정량 효과 미제시).
+     - 단점(고유): IdP·MCP 인가 서버·클라이언트가 모두 확장을 지원해야 작동하므로 적용 범위가 지원 IdP·제품에 한정됨(근거 자료 기준 Okta 연동 중심). IdP가 단일 통제·장애 지점이 되는 집중 위험(추정).
+     - 예시:
+       ● (문서화) Okta XAA — 엔터프라이즈 환경의 MCP 서버 연결 권장 방식으로 소개.
+       ● (문서화) oktadev/okta-cross-app-access-mcp — Identity Assertion Authorization Grant 기반 MCP 클라이언트 인가 PoC.
+       ● (문서화) Mintive — 엔터프라이즈 조직 대상 MCP 서버용 XAA·Okta 연동 구성(벤더 문서 기준).
+8. 참고 문헌
  - [표준/거버넌스] Anthropic·AAIF. Model Context Protocol Official Documentation (https://modelcontextprotocol.io/docs/getting-started/intro): §1·§2 원전 — Host–Client–Server 3계층 · JSON-RPC 2.0 · Resources/Prompts/Tools · 기능 협상 · stdio/Streamable HTTP 전송
- - [표준/거버넌스] Model Context Protocol. Specification (https://spec.modelcontextprotocol.io/): §2-ⓔⓕ 근거 — 2025-03-26 개정에서 HTTP+SSE를 Streamable HTTP로 대체 · OAuth 2.1 인가 편입
- - [표준/거버넌스] MCP Blog. Enterprise-Managed Authorization (https://blog.modelcontextprotocol.io/posts/enterprise-managed-auth/): §2-ⓕ·§3 근거 — ID-JAG로 IdP 중앙 프로비저닝, 서버별 동의 화면 불필요
+ - [표준/거버넌스] Anthropic. Introducing the Model Context Protocol (https://www.anthropic.com/news/model-context-protocol): §1 근거 — 2024-11 공개 · "universal, open standard" 서술 · 파편화된 통합을 단일 프로토콜로 대체하는 문제 정의
+ - [표준/거버넌스] Model Context Protocol. Specification (https://spec.modelcontextprotocol.io/): §2-ⓒⓔⓕ·§4 근거 — 2025-03-26 개정에서 HTTP+SSE를 Streamable HTTP로 대체 · Session Management 절: 세션 ID(Mcp-Session-Id) 발급은 서버 선택, 발급 시 클라이언트가 후속 요청에 포함 · OAuth 2.1 인가 편입
+ - [표준/거버넌스] CIMD. OAuth Client ID Metadata Documents (https://cimd.dev/): §2-ⓕ·§7-1 근거 — 클라이언트 ID를 HTTPS URL로 두고 메타데이터 JSON을 호스팅하는 사전 등록 불필요 방식 · MCP 전용이 아닌 범용 OAuth 메커니즘
+ - [도구/프레임워크] Auth0. CIMD is the Future of MCP Client Registration (https://auth0.com/blog/cimd-vs-dcr-mcp-registration/): §2-ⓕ 근거 — 2025-11 기준 MCP 생태계에서 CIMD가 DCR을 대체하는 방향 (벤더 해설)
+ - [표준/거버넌스] MCP Blog. Enterprise-Managed Authorization (https://blog.modelcontextprotocol.io/posts/enterprise-managed-auth/): §2-ⓕ·§3·§7-1 근거 — Enterprise-Managed Authorization을 MCP 인가의 확장으로 정의하는 1차 출처 · ID-JAG로 IdP 중앙 프로비저닝, 서버별 동의 화면 불필요 (프로젝트 공식 발표)
+ - [표준/거버넌스] Parecki, A., et al. (IETF OAuth WG). Identity Assertion JWT Authorization Grant (Internet-Draft, draft-ietf-oauth-identity-assertion-authz-grant, https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-assertion-authz-grant/): §7-1 원전 — ID-JAG 정의 · ⓑ IdP가 정책에 따라 ID-JAG 발급 여부 판정 · ⓒ JWT Bearer 그랜트로 리소스 측 인가 서버에 제시
+ - [표준/거버넌스] Jones, M., et al. RFC 8693: OAuth 2.0 Token Exchange (IETF, 2020, https://www.rfc-editor.org/rfc/rfc8693): §7-1 ⓑ 근거 — ID 토큰을 ID-JAG로 바꾸는 토큰 교환 규격
+ - [표준/거버넌스] Jones, M., Campbell, B., Mortimore, C. RFC 7523: JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication and Authorization Grants (IETF, 2015, https://www.rfc-editor.org/rfc/rfc7523): §7-1 ⓒ 근거 — ID-JAG를 액세스 토큰으로 교환하는 JWT Bearer 그랜트
+ - [도구/프레임워크] Okta. Cross App Access (https://www.okta.com/solutions/cross-app-access/): §3·§5·§7-1 근거 — XAA를 OAuth 확장으로 설명하고 엔터프라이즈 MCP 연결 권장 방식으로 소개 · 관리자 중앙 통제 취지 (벤더 제품 문서·벤더 주장)
+ - [도구/프레임워크] Okta. Cross App Access extends MCP to bring enterprise-grade security to AI agents (https://www.okta.com/newsroom/articles/cross-app-access-extends-mcp-to-bring-enterprise-grade-security-to-ai-agents/): §7-1 근거 — 2025-11-25 발표 · XAA가 MCP 연결에 신원 인지형 인가 계층을 추가 (벤더 발표)
+ - [도구/프레임워크] Mike. MCP Cross App Access Explained: The ID-JAG Exchange on the Wire (https://webofmike.com/mcp-oauth-xaa/): §7-1 근거 — ⓐ~ⓒ 총 3회 HTTP 호출 흐름 · XAA를 MCP Enterprise-Managed Authorization 확장의 제품명으로 설명 (개인 기술 해설, 2026-10, 1차 출처 병기용)
+ - [도구/프레임워크] Okta. okta-cross-app-access-mcp (https://github.com/oktadev/okta-cross-app-access-mcp): §7-1 근거 — Identity Assertion Authorization Grant 기반 MCP 클라이언트 인가 PoC
+ - [도구/프레임워크] Mintive. Cross app access (XAA) (https://www.mintive.com/docs/cross-app-access): §7-1 근거 — 엔터프라이즈 조직 대상 MCP 서버용 XAA·Okta 연동 제공 (벤더 제품 문서)
  - [논문·서베이] SoK: Security and Safety in the MCP Ecosystem (arXiv:2512.08290, https://arxiv.org/pdf/2512.08290): §4 근거 — 위협 분류 · 2,614개 구현 중 82% 경로 탐색 취약 파일 연산 (MCP 생태계 한정 조사)
- - [뉴스·보도·취약점] Three Flaws in Anthropic MCP Git Server (https://thehackernews.com/2026/01/three-flaws-in-anthropic-mcp-git-server.html): §4 근거 — CVE-2025-68143(8.8)/68144(8.1)/68145(7.1) 경로 탐색·인자 주입
- - [도구/프레임워크] mcp-cve-project (https://github.com/mcp-security-project/mcp-cve-project): §4 근거 — 60일간 30+ CVE·약 43% 커맨드 인젝션 집계
+ - [도구/프레임워크] The Hacker News. Three Flaws in Anthropic MCP Git Server (https://thehackernews.com/2026/01/three-flaws-in-anthropic-mcp-git-server.html): §4 근거 — CVE-2025-68143(8.8)/68144(8.1)/68145(7.1) 경로 탐색·인자 주입 (보안 보도)
+ - [표준/거버넌스] NIST NVD. CVE-2025-6514 Detail (https://nvd.nist.gov/vuln/detail/CVE-2025-6514): §4 근거 — mcp-remote OS 커맨드 인젝션 · CVSS 9.6 (공공 취약점 DB)
+ - [도구/프레임워크] mcp-cve-project (https://github.com/mcp-security-project/mcp-cve-project): §4 근거 — 60일간 30+ CVE·약 43% 커맨드 인젝션 집계 (2차 집계)
  - [도구/프레임워크] ClickHouse MCP Server (https://github.com/ClickHouse/mcp-clickhouse): §5 근거 — 데이터 스토어를 도구화한 문서화 구현체

@@ -170,3 +170,6 @@ PagedAttention: KV 캐시를 고정 크기 블록으로 나눠 블록 테이블�
 BitLinear: 표준 선형 레이어를 대체해 양자화된 가중치·활성화로 내적을 수행하는 BitNet의 핵심 레이어
 양자화 인식 학습(Quantization-Aware Training, QAT): 학습 중 저비트 제약을 순전파에 적용해 모델이 그 제약에 적응하도록 하는 학습 방식
 bitnet.cpp: 삼진 가중치 모델의 CPU·GPU 추론을 위한 Microsoft 공식 전용 추론 프레임워크
+CIMD(Client ID Metadata Documents): OAuth 클라이언트 ID를 HTTPS URL로 두고 그 주소에 클라이언트 메타데이터 JSON을 호스팅해 사전 등록 없이 식별하는 범용 OAuth 방식
+ID-JAG(Identity Assertion JWT Authorization Grant): IETF OAuth WG 초안으로, IdP가 정책에 따라 발급한 신원 어설션 JWT를 제시해 다른 서비스의 액세스 토큰을 받는 인가 방식. Okta는 이를 XAA(Cross App Access)로 제공
+툴 포이즈닝(Tool Poisoning): MCP 도구 설명(description)에 악성 지시를 심어 에이전트 컨텍스트로 유입시키는 간접 프롬프트 인젝션 유형
