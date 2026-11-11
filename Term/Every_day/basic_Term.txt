@@ -180,3 +180,7 @@ ID-JAG(Identity Assertion JWT Authorization Grant): IETF OAuth WG 초안으로, 
 확률적 반올림(Stochastic Rounding): 저정밀 변환 시 반올림 방향을 값에 비례한 확률로 정해, 작은 갱신분이 기댓값 기준으로 누적되도록 하는 방식
 이점(Advantage): 특정 답변이 평균 대비 얼마나 나은지를 나타내는 값으로, 정책 갱신 방향과 크기를 정함
 제로 분산 그룹(Zero-Variance Group): 그룹 내 보상이 모두 같아 표준편차가 0이 되고 이점이 사라져 학습 신호가 없는 그룹
+프리필(Prefill): 입력 프롬프트 전체의 KV를 계산하는 추론 초기 단계
+접두사 캐싱(Prefix Caching): 프롬프트 앞부분이 동일할 때 해당 구간의 KV를 정확하게 재사용하는 기법
+RoPE(Rotary Position Embedding): 토큰 위치를 벡터 회전으로 반영하는 위치 인코딩으로, 상대 위치 성질을 이용해 위치 보정이 가능함
+HKVD 토큰(High-KV-Deviation Token): 청크 독립 계산 KV와 전체 문맥 KV 사이 편차가 큰 토큰으로, CacheBlend의 선택 재계산 대상
