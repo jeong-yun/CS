@@ -191,3 +191,5 @@ BlockMask: 블록 단위 희소 지도로, 완전히 빈 블록의 연산을 생
 Sparse Mixture of Experts(MoE): 토큰마다 일부 전문가만 활성화하는 희소 아키텍처
 Heterogeneous Computing: CPU·GPU 등 서로 다른 프로세서에 연산을 역할별로 분담하는 방식
 SGLang: LLM 서빙 백엔드로 KTransformers가 통합을 제공
+Homomorphic Encryption: 암호문 상태 그대로 연산을 수행하고, 그 결과를 키 보유자만 복호화할 수 있게 하는 암호 방식
+Embedding Inversion Attack: 임베딩 벡터만으로 학습된 디코더를 이용해 근사 원문을 복원하는 공격
