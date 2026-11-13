@@ -1,4 +1,4 @@
-[Perf]플렉스어텐션(FlexAttention) (작성일: 26.11.11)
+[Perf]플렉스어텐션(FlexAttention) (작성일: 26.11.11)(수정일: 26.11.13)
  - 부제: 어텐션 변형을 파이썬 함수로 정의하고 torch.compile로 융합 커널로 컴파일하는 PyTorch 프로그래머블 어텐션 API
 1. 정의 및 개념
  - 사용자가 작성한 파이썬 함수(score_mod·mask_mod)로 여러 어텐션 변형을 몇 줄 코드로 구현하고, torch.compile이 이를 융합(fused) 블록-희소 커널로 변환하는 PyTorch 프로그래머블 어텐션 API(torch.nn.attention.flex_attention) (Dong et al., arXiv:2412.05496; PyTorch 블로그 2024.08).
@@ -22,8 +22,8 @@
  - torch.compile 의존: 컴파일 없이 호출하면 비융합 구현으로 점수 행렬이 물질화되어 메모리 부담 발생 (소스 경고문).
  - score_mod 마스킹의 연산량 함정: score_mod로 점수를 −∞로 바꿔도 출력상 마스킹은 성립. 그러나 QK 계산이 끝난 뒤 적용되므로 가려진 블록의 연산량은 그대로 남음. 같은 마스크라도 mask_mod(BlockMask)로 표현해야 블록 생략 가능 (§2-ⓐ·ⓑ 정의에 따른 구조적 귀결).
  - 블록 단위 희소성: 블록 내부의 세밀한 희소성은 생략 불가 → 마스크 비율과 속도 향상이 비례한다고 단정 불가.
- - 수작업 커널 대비 성능: 전용 수작업 커널(FlashAttention 계열)과의 처리량 격차는 측정 조건을 포함한 확인 근거 없음.
- - 서빙 엔진 통합: vLLM 등 외부 추론 엔진의 지원 범위·버전 조건은 확인된 문서 근거 없음.
+ - 수작업 커널 대비 성능: Hopper GPU에서 FlashAttention-3 대비 처리량이 원 블로그(2024.08) 시점 약 80%, 2026.03 재측정 시 약 60%로 PyTorch 팀이 보고(양 구현 개선 후 비교). 그 외 GPU·마스크 패턴·시퀀스 길이별 격차는 확인 근거 없음.
+ - 서빙 엔진 통합: vLLM이 FlexAttention 기반 어텐션 백엔드를 제공하며, 완전히 가려진 KV 블록은 BlockMask에서 커널 호출 전에 제거됨. 그 외 추론 엔진·버전별 지원 범위와 기능 제약은 확인된 문서 근거 없음.
  - 컴파일·마스크 생성 오버헤드: 가변 시퀀스·동적 마스크에서 컴파일 비용과 블록 마스크 재계산 비용 발생 가능 (추정, 조건별 측정 근거 없음).
  - 부적합 영역
    ⓐ torch.compile을 쓸 수 없는 실행 환경
@@ -72,9 +72,10 @@
  - [도구/프레임워크] PyTorch Team. FlexAttention: The Flexibility of PyTorch with the Performance of FlashAttention (PyTorch 공식 블로그 2024.08.07, https://pytorch.org/blog/flexattention/): §1·§3·§5 근거 — 배경(hypercube 문제) · 몇 줄 파이썬으로 여러 어텐션 변형 구현 · 변형 예제
  - [도구/프레임워크] PyTorch. torch.nn.attention.flex_attention (공식 문서, https://docs.pytorch.org/docs/main/nn.attention.flex_attention.html): §2·§4 근거 — score_mod·mask_mod·create_block_mask API 정의
  - [도구/프레임워크] PyTorch Team. FlexAttention for Inference (PyTorch 공식 블로그, https://pytorch.org/blog/flexattention-for-inference/): §7-1·§7-2 근거 — 디코딩 경로(FlexDecoding) · 페이지드 KV 결합
- - [도구/프레임워크] PyTorch Team. FlexAttention + FlashAttention-4: Fast and Flexible (PyTorch 공식 블로그 2026.03.05, https://pytorch.org/blog/flexattention-flashattention-4-fast-and-flexible/): §2-ⓒ·§3·§6·§7-3 근거 — 몇 줄 파이썬·CUDA 불필요 · FA-4 백엔드 결합
+ - [도구/프레임워크] PyTorch Team. FlexAttention + FlashAttention-4: Fast and Flexible (PyTorch 공식 블로그 2026.03.05, https://pytorch.org/blog/flexattention-flashattention-4-fast-and-flexible/): §2-ⓒ·§3·§4·§6·§7-3 근거 — 몇 줄 파이썬·CUDA 불필요 · FA-4 백엔드 결합 · FA3 대비 처리량 원 블로그 시점 약 80%→2026.03 약 60%(Hopper GPU)
  - [도구/프레임워크] PyTorch. flex_attention.py (GitHub 소스, https://github.com/pytorch/pytorch/blob/main/torch/nn/attention/flex_attention.py): §2-ⓔ·§4 근거 — torch.compile 없이 호출 시 점수 행렬 물질화 경고문
  - [도구/프레임워크] Meta PyTorch. attention-gym (GitHub 저장소, https://github.com/meta-pytorch/attention-gym): §5 근거 — 어텐션 변형 프로토타이핑 도구 모음 · 실제 워크로드 활용 사례
+ - [도구/프레임워크] vLLM. flex_attention (vLLM 공식 API 문서, https://docs.vllm.ai/en/latest/api/vllm/v1/attention/backends/flex_attention/): §4 근거 — vLLM FlexAttention 백엔드 존재 · 완전히 가려진 KV 블록을 BlockMask에서 커널 호출 전 제거
 
 [Perf]비접두사 KV 캐시 재사용(Position-Independent KV Caching) (작성일: 26.11.11)
  - 부제: 프롬프트 접두사가 아닌 위치에 놓인 문서 청크의 사전 계산 KV 캐시를 재사용하는 서빙 기법군 — 재계산 없는 모듈 재사용(Prompt Cache)에서 선택적 토큰 재계산(CacheBlend)까지
