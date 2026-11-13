@@ -1,3 +1,50 @@
+[Perf]케이트랜스포머스(KTransformers) (작성일: 26.11.13)
+ - 부제: CPU·GPU 이기종 컴퓨팅 기반 대형 MoE 모델 추론·SFT 프레임워크 — hot/cold 전문가 배치부터 SGLang 통합까지
+1. 정의 및 개념
+ - KTransformers는 CPU-GPU 이기종 컴퓨팅(heterogeneous computing; 서로 다른 특성의 프로세서를 역할별로 분담)으로 대형 언어 모델의 추론과 미세조정(SFT)을 수행하는 연구 프로젝트이자 프레임워크임. 대형 MoE 모델 추론에 특화된 시스템은 ACM 논문으로 발표됨(저장소 kvcache-ai, 문서 제공처 APPROACHING.AI).
+ - 핵심 경계: 모델 가중치·아키텍처는 그대로 두고 연산 배치와 커널·서빙만 바꿈. 아키텍처인 「희소 전문가 혼합(Sparse MoE)」·「다중 헤드 잠재 어텐션(MLA)」과 달리 실행 계층이며, 로컬 배포 문턱을 낮추는 것이 목적임.
+ - 등장 배경
+   ① 문제: 수백B급 MoE 모델은 전체 파라미터가 커서 GPU VRAM만으로 올리기 어렵고, 로컬 배포 비용이 높음.
+   ② 원인: MoE는 토큰당 일부 전문가만 활성화되지만 모든 전문가 가중치가 상주해야 해 메모리 요구는 총 파라미터 기준으로 큼(→ 「희소 전문가 혼합(Sparse MoE)」 §1). (추정) 기존 범용 추론 엔진은 전문가 가중치를 CPU 메모리에 두는 이기종 배치를 중심으로 설계되지 않음.
+   ③ 처방: 자주 활성화되는 전문가(hot)는 GPU, 드물게 활성화되는 전문가(cold)는 CPU·시스템 RAM에 배치하는 이기종 전문가 배치를 적용하고 SGLang과 통합해 서빙 환경에 연결함.
+2. 작동 원리
+ ⓐ 이기종 전문가 배치(Heterogeneous Expert Placement): hot 전문가는 GPU, cold 전문가는 CPU에 둠. 메모리(VRAM) 절감 축.
+ ⓑ CPU 커널(kt-kernel): CPU 측 전문가 연산을 담당하는 소스 트리로 Inference와 SFT 기능을 노출. 연산 최적화 축이며 구체적 ISA(AMX·AVX 등) 활용 방식은 근거 자료에서 확인되지 않음.
+ ⓒ 서빙 통합(SGLang Integration): 프로덕션 서빙용 SGLang과 연동.
+ ⓓ 양자화 혼합 구성(Mixed Quantization): 사례 가이드에서 GPU는 FP8, CPU는 Q4_K_M GGUF로 구성한 DeepSeek-R1-0528 설정이 확인됨(특정 가이드 구성이며 일반 규칙 아님).
+3. 좋아진 점
+ - VRAM 요구 완화: cold 전문가를 CPU·시스템 RAM으로 내려 VRAM 부담 경감(감소폭은 모델·양자화·RAM 구성에 따라 다르며 공식 수치 미확인).
+ - 로컬 배포 문턱 하락: 다중 GPU 서버 없이 단일 워크스테이션 구성을 지향.
+ - 서빙 연계: SGLang 통합으로 단일 스크립트를 넘어 서빙 환경에 연결 가능.
+4. 문제점 및 한계
+ - 시스템 RAM 요구: cold 전문가가 RAM에 상주하므로 대용량 RAM 필요. 필요량은 모델 크기·양자화·컨텍스트에 따라 달라지며 일반 최소·권장값은 공식 확인 불가.
+ - CPU 연산·메모리 대역폭 의존: cold 전문가 연산이 CPU에서 일어나 CPU 세대·대역폭에 따라 성능 변동(정량 근거는 확인되지 않음).
+ - Dense 모델 이점 제한: MoE 희소성을 전제로 한 배치라 Dense 모델에서는 이점이 줄어들 수 있음(구동 불가로 단정하지는 않음).
+ - 프로덕션 채택 간극: 대규모 상용 채택 사례와 공식 반박·실패 사례는 확인되지 않음.
+ - 부적합 영역
+   ⓐ Dense 모델 중심 워크로드
+   ⓑ 높은 동시성·낮은 지연이 SLA인 대규모 상용 서빙(채택 근거 미확인)
+   ⓒ 시스템 RAM·CPU 증설이 불가한 환경
+5. 사용 예시
+ - (문서화 — 원전) CPU-GPU 하이브리드 추론과 SFT 수행, kt-kernel 기반 — kvcache-ai/ktransformers 저장소·공식 문서
+ - (문서화) SGLang 통합을 통한 서빙 — kvcache-ai/ktransformers 저장소
+ - (문서화) DeepSeek-R1-0528을 FP8(GPU)+Q4_K_M GGUF(CPU)로 Docker 구동하는 셋업 가이드 — Teachings/AIServerSetup
+ - (응용 추정(비문서화)) 폐쇄망에서 외부 API 사용이 제한될 때 로컬 추론 후보로 검토(→ 「에이전틱 AI SOC」)
+ - (부적합 사례) Dense 모델 중심 서빙 — §4 참조
+6. 관계 (기존 개념 비교)
+ - 희소 전문가 혼합(Sparse MoE): 유사: 희소 활성화로 hot/cold 전문가 구분이 가능해 배치 전략이 성립 / 차이: 계층 — 모델 아키텍처 ↔ 실행·배치 프레임워크 / 경계: 이중 해리 부분 성립(Sparse MoE는 KTransformers 없이 성립 / KTransformers는 정의상 LLM 프레임워크이나 효과는 MoE 희소성에 의존). 편입 금지 근거는 원리 축 차이(아키텍처 ↔ 실행 배치)이며, 원전상 MoE의 하위 변형으로 정의되지 않음 → 별도+상호참조.
+ - 다중 헤드 잠재 어텐션(MLA): 유사: 대형 MoE LLM의 메모리 부담 완화 목적 / 차이: 개입 시점·대상 — 네이티브 학습 아키텍처(KV 캐시 압축) ↔ 사후 배치·커널(전문가 가중치 위치) / 경계: 직교하며 결합 가능.
+ - 선형 어텐션 기반 선형 트랜스포머: 유사: 추론 효율화 목적 / 차이: 연산 복잡도 변경(아키텍처) ↔ 기존 모델의 실행 배치 / 경계: 원리 축이 달라 별도.
+ - 에이전틱 AI SOC: 유사: 온프레미스·폐쇄망 로컬 LLM 후보라는 응용 맥락 / 차이: 보안 관제 운영 개념 ↔ 추론 인프라 / 경계: 응용 가능성만 있고 정의 관계 없음, 별도+상호참조.
+ - AI 에이전트 메모리 아키텍처: 유사: 로컬 에이전트 구성 요소라는 맥락 / 차이: 저장·회상 구조 ↔ 모델 실행 인프라 / 경계: 원리 접점 없음 → 무관(응용 구성에서 병용만 가능).
+ - ClickHouse FSM 이벤트 시퀀스 매칭: 유사: 로그 분석 맥락(초안 예시) / 차이: DB 내 패턴 매칭 ↔ LLM 서빙 / 경계: 무관.
+7. 참고 문헌
+ - [논문·핵심기법] ACM 게재 논문(저자 명단 근거 자료 미확인). Unleashing the Full Potential of CPU/GPU Hybrid Inference for MoE Models (ACM DOI 10.1145/3731569.3764843, https://dl.acm.org/doi/10.1145/3731569.3764843): §1·§2 원전 — MoE 모델용 CPU/GPU 이기종 추론 시스템 정체성
+ - [도구/프레임워크] kvcache-ai. ktransformers (GitHub, https://github.com/kvcache-ai/ktransformers): §1·§2·§5 근거 — CPU-GPU 하이브리드 추론, SGLang 통합, hot/cold 전문가 배치, Inference·SFT 기능
+ - [도구/프레임워크] KTransformers 문서. Introduction (공식 문서, https://kvcache-ai.github.io/ktransformers/index.html): §1·§2 근거 — 이기종 컴퓨팅 기반 추론·SFT, kt-kernel 소스 트리 (2026-10-15 표시)
+ - [도구/프레임워크] APPROACHING.AI. KTransformers Documentation (공식 문서, https://ktransformers.net/en/docs): §1 근거 — 로컬 배포 문턱을 낮추는 추론·미세조정 프레임워크 설명
+ - [도구/프레임워크] Teachings/AIServerSetup. DeepSeek-R1-0528 KTransformers Setup Guide (GitHub, https://github.com/Teachings/AIServerSetup/blob/main/06-DeepSeek-R1-0528/01-DeepSeek-R1-0528-KTransformers-Setup-Guide.md): §2-ⓓ·§5 근거 — FP8(GPU)+Q4_K_M GGUF(CPU) 하이브리드 구성 사례
+
 [Perf]플렉스어텐션(FlexAttention) (작성일: 26.11.11)(수정일: 26.11.13)
  - 부제: 어텐션 변형을 파이썬 함수로 정의하고 torch.compile로 융합 커널로 컴파일하는 PyTorch 프로그래머블 어텐션 API
 1. 정의 및 개념

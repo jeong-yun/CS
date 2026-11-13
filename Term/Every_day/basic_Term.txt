@@ -188,3 +188,6 @@ score_mod: QK 점수 계산 직후 softmax 이전에 점수를 변형하는 파�
 mask_mod: 토큰 쌍별 어텐션 허용 여부를 정의하는 함수로, BlockMask 생성의 입력
 BlockMask: 블록 단위 희소 지도로, 완전히 빈 블록의 연산을 생략하는 데 사용되는 구조
 융합 커널(Fused Kernel): 여러 연산을 하나의 GPU 커널로 합쳐 중간 결과의 메모리 할당을 줄이는 방식
+Sparse Mixture of Experts(MoE): 토큰마다 일부 전문가만 활성화하는 희소 아키텍처
+Heterogeneous Computing: CPU·GPU 등 서로 다른 프로세서에 연산을 역할별로 분담하는 방식
+SGLang: LLM 서빙 백엔드로 KTransformers가 통합을 제공
