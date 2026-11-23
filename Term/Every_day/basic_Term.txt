@@ -193,3 +193,5 @@ Heterogeneous Computing: CPU·GPU 등 서로 다른 프로세서에 연산을 �
 SGLang: LLM 서빙 백엔드로 KTransformers가 통합을 제공
 Homomorphic Encryption: 암호문 상태 그대로 연산을 수행하고, 그 결과를 키 보유자만 복호화할 수 있게 하는 암호 방식
 Embedding Inversion Attack: 임베딩 벡터만으로 학습된 디코더를 이용해 근사 원문을 복원하는 공격
+Time To First Token(TTFT): 요청 입력 후 첫 출력 토큰이 생성되기까지의 지연 시간
+KV Cache: 어텐션 연산에서 이전 토큰의 Key·Value 텐서를 저장해 재계산을 피하는 캐시
