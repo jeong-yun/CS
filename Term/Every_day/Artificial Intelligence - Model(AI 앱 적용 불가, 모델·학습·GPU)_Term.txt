@@ -2719,11 +2719,15 @@ DPO는 보상 모델·강화학습 단계를 제거 - "A가 B보다 낫다"는 �
  - Paving the way to efficient architectures: StripedHyena-7B, open source models offering a glimpse into a world beyond Transformers(https://www.together.ai/blog/stripedhyena-7b)
  - Just read twice: closing the recall gap for recurrent language models(https://arxiv.org/pdf/2407.05483)
 
-[Perf]테스트 타임 트레이닝(Test-Time Training, TTT) (작성일: 26.07.01)(수정일: 26.07.30, 08.05, 08.24, 08.31, 10.01, 10.06)
+[Perf]테스트 타임 트레이닝(Test-Time Training, TTT) (작성일: 26.07.01)(수정일: 26.07.30, 08.05, 08.24, 08.31, 10.01, 10.06, 11.24)
 1. 정의 및 개념
  - '테스트 타임 컴퓨트(Test-Time Compute)'가 가중치 변화 없이 사고 시간(추론 경로)만 늘리는 방식이라면, TTT는 완전히 다른 개념 - 모델이 새 프롬프트를 읽어 들일 때 그 입력 데이터 자체를 학습 데이터로 삼아 실시간으로 모델 가중치를 경사하강(Gradient Descent)으로 미세 조정하는 기술.
  - 기존 트랜스포머가 문맥을 방대한 KV 캐시에 저장해 꺼내 썼다면, TTT는 "문맥을 읽으면서 그 내용을 즉석에서 가중치(Weight)에 압축·학습"하는 패러다임 전환. 은닉 상태(hidden state) 자체가 하나의 학습 모델이고 업데이트 규칙이 자가지도 학습인 선형 복잡도 시퀀스 레이어.
- - 대표 연구: 원조 TTT-Linear/TTT-MLP(Sun 외, Stanford·UCSD·Berkeley, 2024/ICML 2025, https://arxiv.org/abs/2407.04620) → TTT-E2E(Astera Institute·NVIDIA·Stanford·Berkeley·UCSD, 2026, https://www.deeplearning.ai/the-batch/test-time-training-end-to-end-ttt-e2e-retrains-model-weights-to-handle-long-inputs) → Titans(Google Research, arXiv:2501.00663, 2024-12-31 공개) → ATLAS(arXiv:2505.23735) → NVIDIA의 "TTT with KV Binding is Secretly Linear Attention"(https://developer.nvidia.com/blog/reimagining-llm-memory-using-context-as-training-data-unlocks-models-that-learn-at-test-time/, https://arxiv.org/abs/2602.21204). 
+ - 대표 연구: 원조 TTT-Linear/TTT-MLP(Sun 외, Stanford·UCSD·Berkeley, 2024/ICML 2025, https://arxiv.org/abs/2407.04620) → TTT-E2E(Astera Institute·NVIDIA·Stanford·Berkeley·UCSD, 2026, https://www.deeplearning.ai/the-batch/test-time-training-end-to-end-ttt-e2e-retrains-model-weights-to-handle-long-inputs) → Titans(Google Research, arXiv:2501.00663, 2024-12-31 공개) → ATLAS(arXiv:2505.23735) → NVIDIA의 "TTT with KV Binding is Secretly Linear Attention"(https://developer.nvidia.com/blog/reimagining-llm-memory-using-context-as-training-data-unlocks-models-that-learn-at-test-time/, https://arxiv.org/abs/2602.21204).
+ - 등장 배경
+   ① 문제: 장문맥에서 어텐션은 문맥 전체를 KV 캐시로 보관·참조해 메모리와 지연이 문맥 길이에 따라 증가하고, 선형 모델은 일정 길이 이후 문맥 길이 스케일링이 어텐션에 미달
+   ② 원인(추정): 고정된 점화식 은닉 상태는 문맥 압축 표현력에 한계가 있고, 어텐션은 압축 없이 전 토큰을 보존하는 구조
+   ③ 처방: 은닉 상태를 학습 가능한 내부 모델로 치환해 문맥을 읽으며 가중치에 압축·갱신 — Titans는 여기에 신경 장기 기억 모듈과 선별적 기록·망각 규칙을 추가(§7-3) 
 2. 작동 원리
  ⓐ 이중 루프 구조: 외부 루프(사전학습) 는 "테스트 시점에 학습하는 방법" 의 초기 가중치를 최적화하고, 내부 루프(테스트 시점) 는 입력을 레이블 없는 훈련 데이터로 삼아 작은 내부 모델의 빠른 가중치(fast weights 를 갱신. TTT-E2E는 훈련 시점 메타러닝으로 이 초기화를 개선한다고 명시.
   - 해석 쟁점(중요): 이 구조를 "테스트 시점에 키-값 매핑을 암기하는 온라인 메타러닝" 으로 설명하는 통상적 해석은 ICML 2026 분석에서 반박됨 — 암기 기반 해석과 모순되는 현상이 다수 관찰되며, KV 바인딩형 TTT 계열은 학습된 선형 어텐션 연산자로 환원 가능. 즉 초기화 학습에는 메타러닝이 실재하나, 테스트 시점 동작의 해석에는 이견 존재.
@@ -2794,7 +2798,7 @@ DPO는 보상 모델·강화학습 단계를 제거 - "A가 B보다 낫다"는 �
        ④ 결합 방식(MAC·MAG·MAL): 장기 기억을 문맥으로 덧붙이기(Memory as Context) / 게이트로 비율 조절(as Gate) / 레이어로 삽입(as Layer).
        ⑤ 영구 기억(Persistent Memory): 단기(어텐션)·장기(LMM)와 별개로, 입력에 독립적인 고정 학습 파라미터가 태스크 고유의 기초 지식을 담당. 문맥이 길어지고 LMM이 계속 갱신돼도 수행해야 할 과제 자체를 잃지 않게 하는 축 — Titans의 기억은 두 종류가 아니라 세 종류.
      - 장점: 2M+ 유효 문맥(어텐션의 제곱(quadratic) 비용 증가를 억제), >2M needle-in-a-haystack SOTA·BABILong에서 GPT-4 상회; 부모 TTT 대비 모멘텀+망각으로 시퀀스가 길어져도 성능이 떨어지지 않는 일관된 추세; 단순 암기가 아니라 새롭고 놀라운 정보를 선별해 기억.
-     - 단점: 단기·장기 경로를 함께 연산하고 메모리를 실시간 갱신해 오버헤드 추가; 고정 용량 압축이라 모든 세부의 정확 인출은 보장하지 않음(정확 검색 필수면 RAG 병용); MAC/MAG/MAL 등 결합 방식 선택이 설계 변수로 남음.
+     - 단점(고유): 단기·장기 경로를 함께 연산하고 메모리를 실시간 갱신해 오버헤드 추가; 고정 용량 압축이라 모든 세부의 정확 인출은 보장하지 않음(정확 검색 필수면 RAG 병용); MAC/MAG/MAL 등 결합 방식 선택이 설계 변수로 남음.
        ○ 적대적 오염 리스크: surprise 기반 실시간 갱신이라, 조작된 입력을 "중요한 신규 정보"로 오인해 장기 기억에 각인시킬 수 있음. 위의 "surprise ≠ 의미적·보안적 중요도"가 우연한 오판이라면, 이쪽은 공격자가 그 판정을 의도적으로 유도하는 경우 — 사용자 입력이 바로 갱신 경로로 들어가므로 입력 신뢰 경계 설계가 전제. 세션 종료 시 초기화되는 점이 피해 범위를 제한하나 세션 내 오염은 유효.
        ○ 해석 쟁점의 상속: 부모 §4의 ICML 2026 분석이 "테스트 시점 암기" 해석과 모순되는 현상을 다수 보고하고 KV 바인딩형 TTT를 학습된 선형 어텐션으로 환원 — "놀라운 정보를 기억에 새긴다"는 Titans의 서사도 이 쟁점의 사정권. 성능을 부정하는 반박은 아니나, 이 직관을 설계 근거로 삼는 응용에는 리스크.
      - 예시: (문서화) >2M needle-in-a-haystack·BABILong 벤치마크 실증.
@@ -2807,11 +2811,9 @@ DPO는 보상 모델·강화학습 단계를 제거 - "A가 B보다 낫다"는 �
 8. 참고 문헌
  - [논문·핵심기법] Sun et al. Learning to (Learn at Test Time): RNNs with Expressive Hidden States (TTT-Linear/MLP, arXiv:2407.04620, ICML 2025, https://arxiv.org/abs/2407.04620)
  - [논문·핵심기법] Tandon·Dalal et al. End-to-End Test-Time Training for Long Context (TTT-E2E, arXiv:2512.23675, https://arxiv.org/abs/2512.23675) — 35×@2M(2M(200만) 토큰 컨텍스트 조건에서 35배 빠름)·8K 슬라이딩 윈도우
- - [논문·핵심기법] Behrouz·Zhong·Mirrokni(Google Research). Titans: Learning to Memorize at Test Time (arXiv:2501.00663, https://arxiv.org/abs/2501.00663): §7-2 근거 — LMM·surprise=손실 그래디언트·모멘텀/감쇠 갱신식·MAC/MAG/MAL·2M+ 문맥. 단기·장기·영구 3종 메모리 · 2024-12-31 공개
- - [논문·핵심기법] ATLAS: Learning to Optimally Memorize the Context at Test Time (arXiv:2505.23735, https://arxiv.org/abs/2505.23735): §7-3 근거 — Titans의 토큰 단위 근시안적 갱신을 윈도우 단위 최적화로 확장(메모리 갱신 규칙 한정 분석).
- - [논문·핵심기법/이론] Test-Time Training with KV Binding Is Secretly Linear Attention (arXiv:2602.21204, ICML 2026, https://arxiv.org/abs/2602.21204): TTT=학습된 선형 어텐션, 마지막 층 갱신 최적
- - [도구/프레임워크] NVIDIA 기술 블로그 Reimagining LLM Memory(https://developer.nvidia.com/blog/reimagining-llm-memory-using-context-as-training-data-unlocks-models-that-learn-at-test-time/)
- - [뉴스·보도] DeepLearning.AI The Batch(https://www.deeplearning.ai/the-batch/test-time-training-end-to-end-ttt-e2e-retrains-model-weights-to-handle-long-inputs): TTT-E2E 소개(2차 자료)
+ - [논문·핵심기법] Behrouz·Zhong·Mirrokni(Google Research). Titans: Learning to Memorize at Test Time (arXiv:2501.00663, https://arxiv.org/abs/2501.00663): §7-3 근거 — LMM·surprise=손실 그래디언트·모멘텀/감쇠 갱신식·MAC/MAG/MAL·2M+ 문맥. 단기·장기·영구 3종 메모리 · 2024-12-31 공개
+ - [논문·핵심기법] ATLAS: Learning to Optimally Memorize the Context at Test Time (arXiv:2505.23735, https://arxiv.org/abs/2505.23735): §7-4 근거 — Titans의 토큰 단위 근시안적 갱신을 윈도우 단위 최적화로 확장(메모리 갱신 규칙 한정 분석).
+ - [논문·한계·반박] Test-Time Training with KV Binding Is Secretly Linear Attention (arXiv:2602.21204, ICML 2026, https://arxiv.org/abs/2602.21204): TTT=학습된 선형 어텐션, 마지막 층 갱신 최적
 
 [Privacy]머신 언러닝(Machine Unlearning / LLM Unlearning) (작성일: 26.05.04)(수정일: 26.07.27)
 1. 개념
