@@ -195,3 +195,5 @@ Homomorphic Encryption: 암호문 상태 그대로 연산을 수행하고, 그 �
 Embedding Inversion Attack: 임베딩 벡터만으로 학습된 디코더를 이용해 근사 원문을 복원하는 공격
 Time To First Token(TTFT): 요청 입력 후 첫 출력 토큰이 생성되기까지의 지연 시간
 KV Cache: 어텐션 연산에서 이전 토큰의 Key·Value 텐서를 저장해 재계산을 피하는 캐시
+Next-Token Prediction(NTP): 언어 모델이 각 위치에서 바로 다음 1개 토큰만 맞히도록 학습하는 표준 목적함수
+Speculative Decoding: 작은 초안 생성원이 여러 토큰을 제안하고 본 모델이 한 번에 검증·채택해 디코딩을 가속하는 추론 기법
