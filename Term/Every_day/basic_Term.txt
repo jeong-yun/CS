@@ -197,3 +197,5 @@ Time To First Token(TTFT): 요청 입력 후 첫 출력 토큰이 생성되기�
 KV Cache: 어텐션 연산에서 이전 토큰의 Key·Value 텐서를 저장해 재계산을 피하는 캐시
 Next-Token Prediction(NTP): 언어 모델이 각 위치에서 바로 다음 1개 토큰만 맞히도록 학습하는 표준 목적함수
 Speculative Decoding: 작은 초안 생성원이 여러 토큰을 제안하고 본 모델이 한 번에 검증·채택해 디코딩을 가속하는 추론 기법
+Budget Forcing: 디코딩 중 종료 구분자를 억제하고 'Wait'을 덧붙여 사고를 연장하거나, 상한 초과 시 종료 구분자를 삽입해 사고를 끝내는 길이 제어 기법
+Sequential Scaling: 후보를 여러 개 병렬로 뽑지 않고 하나의 추론 궤적을 더 길게 이어 테스트 타임 연산을 늘리는 방식
