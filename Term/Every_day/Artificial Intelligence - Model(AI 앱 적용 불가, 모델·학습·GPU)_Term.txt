@@ -1452,9 +1452,9 @@ LOO 재학습 회피: 샘플마다 재학습하지 않고 근사로 대체.
  - [논문·핵심기법] DeepSeek-AI. DeepSeek-V3.2: Pushing the Frontier of Open LLMs (arXiv:2512.02556, https://arxiv.org/abs/2512.02556): §4·§6 프로덕션 선택 근거 — NSA(블록 단위) 대신 DSA(토큰 단위·Lightning Indexer) 채택
  - [도구/프레임워크] LMSYS Org. SGLang Day 0 Support for DeepSeek-V3.2 with Sparse Attention (https://www.lmsys.org/blog/2025-09-29-deepseek-V32/): §6 근거 — SGLang 구현 지원 공지 · Lightning Indexer 기반 토큰 단위 희소성이 NSA의 블록 단위와 대비됨
 
-[Perf]차분 트랜스포머(Differential Transformer, DIFF Transformer) (작성일: 26.08.21)(수정일: 26.09.14, 10.15)
+[Perf]차분 트랜스포머(Differential Transformer, DIFF Transformer) (작성일: 26.08.21)(수정일: 26.09.14, 10.15, 11.27)
 1. 정의 및 개념
- - Microsoft Research·칭화대 연구팀이 2024년 10월 제안(ICLR 2025 Oral) 한 언어 모델 기반 아키텍처. 전자 공학의 차동 증폭기(노이즈 캔슬링) 원리를 어텐션 스코어링에 적용해 두 어텐션 맵의 차로 점수를 계산하는 방식. 
+ - Microsoft Research·칭화대 연구팀이 2024년 10월 제안(ICLR 2025 Oral) 한 시퀀스 모델링용 기반(foundation) 아키텍처로, 원전은 대규모 언어 모델(LLM)용으로 제시. 전자 공학의 차동 증폭기(노이즈 캔슬링) 원리를 어텐션 스코어링에 적용해 두 어텐션 맵의 차로 점수를 계산하는 방식. 
  - 등장 배경
   ① 문제: 문맥이 길어질수록 핵심 정보 누락(바늘 찾기 실패)과 환각 심화가 빈발.
   ② 원인: 표준 어텐션이 소프트맥스 특성상 모든 토큰에 양수(+) 가중치를 배분해야 하므로, 무관한 토큰에도 미세 점수가 누출되는 어텐션 노이즈(attention noise) 누적.
