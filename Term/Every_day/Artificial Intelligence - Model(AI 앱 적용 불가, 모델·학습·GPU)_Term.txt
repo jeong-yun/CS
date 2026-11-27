@@ -2049,7 +2049,7 @@ V-JEPA 2(Video Joint Embedding Predictive Architecture 2) (작성일: 26.08.03)
  - [논문·서베이] World Models: A Comprehensive Survey (arXiv:2606.00133, https://arxiv.org/pdf/2606.00133): 세계모델 지형
  - [논문·한계·반박] FF-JEPA: Long-Horizon Planning in World Models with Latent Planners (arXiv:2606.09311, https://arxiv.org/pdf/2606.09311): 장기 계획 한계 후속 연구
 
-[AI-Sec]표현 공학(Representation Engineering, RepE) (작성일:26.07.27)(수정일: 26.08.25, 10.19)
+[AI-Sec]표현 공학(Representation Engineering, RepE) (작성일:26.07.27)(수정일: 26.08.25, 10.19, 11.27)
 1. 정의 및 개념
  - 모델의 가중치·입력을 그대로 둔 채, 추론 중 발생하는 내부 은닉 상태(Hidden States; 레이어의 활성화 신호) 를 읽고 특정 개념(정직성·무해성 등) 벡터를 인위적으로 증폭·억제해 행동을 직접 통제하는 하향식(Top-Down) 투명성·제어 프레임워크('AI 뇌파 조작'). CAIS의 Zou 외 제안(arXiv:2310.01405).
  - 뉴런·회로가 아니라 집단 수준 표현(population-level representation) 을 분석 단위로 삼는 점이 기계적 해석가능성과의 차이.
@@ -2071,16 +2071,19 @@ V-JEPA 2(Video Joint Embedding Predictive Architecture 2) (작성일: 26.08.03)
  - 성능 저하·부작용(Degradation/Off-target): 개념 방향을 과하게 가감하면 언어 능력이 무너져 비문이 생김. α를 높이면 무해한 보안 기술 질문까지 거부하는 과잉 거부가 늘어나는 맞교환이 있음. 거부 방향 제거(abliteration)는 무관한 태스크의 성향까지 바꿔, 무수정 모델이 "베이스에서 거부만 뺀 모델"이 아니라 다른 의사결정자가 됨.
  - 개념 얽힘: 목표 개념의 방향이 정상 능력과 관련된 방향과 겹쳐 있으면, 목표 개념만 억제하려다 관련 정상 능력(예: 코딩)이 함께 떨어질 수 있음. 정량 근거는 본 검증에서 확인하지 못함.
  - 이중 용도: 같은 기법이 방어(무해성 증폭)와 공격(거부 방향 제거)에 모두 쓰임.
+ - 부적합 영역
+   ⓐ API로만 쓰는 클로즈드 모델 기반 서비스 — 은닉 상태 접근 불가.
+   ⓑ 무해한 보안 기술 질문을 다뤄야 하는 업무 — 높은 α의 무해성 조향 시 과잉 거부 증가.
 5. 사용 예시
- - (문서화 — 원전 평가) 정직성 방향 조향으로 TruthfulQA 개선(Zou et al.). 
- - (문서화 — 이중 용도) Abliteration: 거부 단일 방향을 찾아 제거해 가드레일을 무력화한 무수정 모델을 만드는 데 역이용(Arditi et al. 2024).
+ - (문서화 — 원전) 정직성 방향 조향으로 TruthfulQA 개선(Zou et al.). 
+ - (문서화) Abliteration(이중 용도): 거부 단일 방향을 찾아 제거해 가드레일을 무력화한 무수정 모델을 만드는 데 역이용(Arditi et al. 2024).
  - (부적합 사례) API로만 쓰는 클로즈드 모델 기반 서비스 — 은닉 상태 접근 불가.
 6. 관계(기존 개념과 비교)
  - AI 에이전트 가드레일(외부 필터): 유사: 런타임에 유해한 출력을 막으려는 목적을 공유. 차이: 개입 층위 — 모델 외부에서 입출력 텍스트를 검사(블랙박스) ↔ 모델 내부 활성화를 읽거나 조작(화이트박스). 경계: 직교하며, 외부 필터와 내부 개입을 겹치는 다층 방어가 전제. 
  - DPO·RLHF: 유사: 모델 행동을 바람직한 방향으로 정렬하려는 목적을 공유. 차이: 개입 시점 — 가중치를 학습으로 갱신 ↔ 추론 시점에 가중치 갱신 없이 조향. 경계: 별도 항목. 서킷 브레이커는 학습 시점 개입이므로 이 경계의 예외(§1).
  - 머신 언러닝: 유사: 특정 지식이나 행동을 억제하려는 목적을 공유. 차이: 지속성 — 영구 제거를 목표 ↔ 일시적 조향. 경계: 별도 항목.
  - 희소 오토인코더(SAE)·기계적 해석가능성: 유사: 내부 표현을 읽는다는 작업을 공유. 차이: 분석 단위 — 뉴런·회로·희소 특징 ↔ 집단 수준 표현 방향. 경계: 별도 항목이며, 읽기 결과를 서로 참조할 수 있음.
-7. 확장 상세
+7. 변형·확장 상세
    1) 서킷 브레이커 (Circuit Breakers)
      - 개념: Gray Swan AI·CMU·Center for AI Safety 공동 연구진이 2024년 6월 제안(NeurIPS 2024 게재) 한 모델 안전장치. 기존 거부 훈련이 행동만 가르쳐 탈옥에 취약했던 한계를 겨냥해, 유해 출력을 담당하는 내부 표현 자체를 제어하는 RepE 파생 방어. 조향과 달리 학습이 필요한 방어임(§1).
      - 작동 원리
@@ -2091,12 +2094,15 @@ V-JEPA 2(Video Joint Embedding Predictive Architecture 2) (작성일: 26.08.03)
        ○ 공격 유형 비의존적 억제: 다국어·Base64 인코딩·역할극 등 프롬프트 형태와 무관하게 유해 표현이 활성화되는 지점에서 개입하므로, 개별 공격 패턴을 열거해 막는 방식보다 일반화 범위가 넓음.
        ○ 멀티모달 적용: 텍스트 전용 모델과 멀티모달 모델 양쪽에 적용 가능하며, 적대적 이미지 경로에도 동일 원리가 작용.
        ○ 유틸리티 손실 억제: 유지 손실 병행으로 안전성 강화에 따른 일반 성능 저하를 최소화.
-     - 단점
+     - 단점(고유)
        ○ 탈옥 방어가 뚫림(핵심 반박): Best-of-N Jailbreaking이 circuit breakers 방어 모델에 ASR 52%, Gray Swan의 상용 모델 Cygnet에 ASR 67% 달성(프롬프트 증강을 반복 샘플링하는 블랙박스 공격). 즉 "공격 불가지론적 원천 봉쇄"는 성립하지 않으며, 방어력이 공격자가 투입하는 연산량에 따라 저하됨.
        ○ 내부 활성화 공격에 취약: 증류 기반 목적함수를 쓰면 유창성 제약을 지키면서도 방어가 쉽게 파괴된다는 분석 존재(Confirm Labs). 화이트박스 접근을 가진 공격자에 대한 보장은 특히 약함.
        ○ 화이트박스 환경 종속: 은닉 상태 접근과 LoRA 어댑터 삽입이 필요하므로 API 전용 클로즈드 모델 사용자 단에서는 적용 불가. 오픈 가중치 또는 온프레미스 통제권 필수.
        ○ 경계 모호 영역의 과도한 거절(Over-refusal): 유해 궤도를 강제로 꺾으므로 방어 목적 악성코드 분석·보안 연구 등 경계가 모호한 요청을 차단할 위험 잔존.
-     -부적합 영역: ① 레드팀·악성코드 분석 워크벤치 — 정당한 유해 콘텐츠 취급이 업무 자체이므로 억제가 곧 기능 상실. ② 단일 방어선으로의 배치 — 52~67% ASR을 감안하면 입출력 필터·모니터링과의 다층 방어가 전제. ③ 클로즈드 API 기반 서비스.
+     - 부적합 영역
+       ⓐ 레드팀·악성코드 분석 워크벤치 — 정당한 유해 콘텐츠 취급이 업무 자체이므로 억제가 곧 기능 상실.
+       ⓑ 단일 방어선으로의 배치 — 52~67% ASR을 감안하면 입출력 필터·모니터링과의 다층 방어가 전제.
+       ⓒ 클로즈드 API 기반 서비스.
      - 예시: (문서화) 원전의 텍스트·멀티모달 공격 평가, Gray Swan Cygnet 상용 배포, Best-of-N 평가의 ASR 측정.
    2) HiddenGuard(Representation Router)
      - 개념: RepE 계열 라우터를 LLM 아키텍처에 통합해 토큰 단위로 유해성을 탐지·수정(redaction) 하는 세밀 제어 프레임워크(ACL 2026). 서킷 브레이커의 "응답 전체 단락"이 유발하는 과도한 거절 문제에 대한 대응.
@@ -2104,14 +2110,13 @@ V-JEPA 2(Video Joint Embedding Predictive Architecture 2) (작성일: 26.08.03)
      - 장점: 유해 부분만 선별 제거하고 무해한 부분은 보존하므로, 전면 차단 방식보다 정보성 있는 응답을 유지하면서 조정 가능. 표면 문자열 필터보다 깊은 의미 정보를 포착.
      - 단점(고유): 라우터·activator라는 부품이 추가되어 아키텍처·추론 오버헤드 증가, 토큰 단위 판정 임계값이 새로운 튜닝 변수로 잔존. 미확인 오용 시나리오에 대한 방어는 향후 과제로 남겨둠.
      - 예시: 원 논문의 세밀 조정(fine-grained moderation) 평가.
-8. 참고 문헌 (유형 라벨 + 사유)
+8. 참고 문헌
  - [논문·핵심기법] Zou et al.(CAIS). Representation Engineering: A Top-Down Approach to AI Transparency (arXiv:2310.01405, https://arxiv.org/abs/2310.01405): §1·§2·§3 원전 — RepReading·RepControl 정의, PCA 기반 방향 추출, 정직성 조향의 TruthfulQA 개선
  - [논문·핵심기법] Arditi et al. Refusal in Language Models Is Mediated by a Single Direction (arXiv:2406.11717, https://arxiv.org/abs/2406.11717): §5 근거 — 거부 단일 방향 제거(abliteration)의 이중 용도
  - [논문·핵심기법] Zou et al.(Gray Swan AI·CMU·CAIS). Improving Alignment and Robustness with Circuit Breakers (NeurIPS 2024, arXiv:2406.04313, https://arxiv.org/abs/2406.04313): §7-1 원전 — RR과 retain loss, LoRA 학습(레이어 10·20 손실, 0~20 어댑터), 텍스트·멀티모달 적용
  - [논문·한계·반박] Hughes, Price, Lynch et al. Best-of-N Jailbreaking (arXiv:2412.03556, https://arxiv.org/abs/2412.03556): §7-1 근거 — 서킷 브레이커 ASR 52%, Cygnet ASR 67%(반복 샘플링 블랙박스 공격 조건)
  - [논문·한계·반박] Confirm Labs. Breaking Circuit Breakers (https://confirmlabs.org/posts/circuit_breaking.html): §7-1 근거 — 내부 활성화 공격에 대한 취약성(활성화 공격 한정 분석)
  - [논문·한계·반박] Abliteration Is Not a Scalpel: Off-Target Effects (arXiv:2607.17427, https://arxiv.org/abs/2607.17427): §4 근거 — abliteration의 무관 태스크 부작용
- - [논문·핵심기법] Bi et al. HiddenGuard: Fine-Grained Safe Generation with Specialized Representation Router (arXiv:2410.02684, https://arxiv.org/abs/2410.02684): §7-2 근거 — PRISM 라우터와 LoRA activator의 토큰 단위 수정
  - [논문·핵심기법] Bi et al. HiddenGuard: Fine-Grained Safe Generation with Specialized Representation Router (arXiv:2410.02684, https://arxiv.org/abs/2410.02684): §7-2 근거 — PRISM 라우터와 LoRA activator의 토큰 단위 수정
  - [도구/프레임워크] andyrdt/refusal_direction (https://github.com/andyrdt/refusal_direction): §5 근거 — abliteration 구현. repeng은 URL이 없어 분리·제외
  - [도구/프레임워크] Gray Swan AI. circuit-breakers (https://github.com/GraySwanAI/circuit-breakers): §7-1 근거 — RR 학습 스크립트와 LoRA 설정 공식 코드
